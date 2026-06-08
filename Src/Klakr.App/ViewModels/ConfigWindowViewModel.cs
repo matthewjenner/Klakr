@@ -96,10 +96,17 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
     [ObservableProperty]
     private bool _displayPresetActive;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsUpdateBannerVisible))]
+    private string? _availableUpdateVersion;
+
     public ConfigWindowViewModel(AppHost host)
     {
         _host = host;
         PlatformNotice = PlatformChecks.StartupNotice();
+
+        AvailableUpdateVersion = host.Updates.AvailableVersion;
+        host.Updates.UpdateAvailableChanged += v => AvailableUpdateVersion = v;
 
         _suppressSettingsPush = true;
         _suppressDisplayApply = true;
@@ -139,6 +146,18 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
 
     /// <summary>Monitors NVIDIA reports, for the Display tab's dropdown.</summary>
     public IReadOnlyList<string> MonitorNames => _host.MonitorNames;
+
+    /// <summary>Window title - includes the running version so it's visible at a glance.</summary>
+    public string WindowTitle => $"Klakr v{AppVersion.Display} - Config";
+
+    /// <summary>True while a newer release is available and the banner should show.</summary>
+    public bool IsUpdateBannerVisible => !string.IsNullOrEmpty(AvailableUpdateVersion);
+
+    /// <summary>
+    /// True only when Velopack is in installed mode. During dev (<c>dotnet run</c>) the banner
+    /// can still appear for UI testing, but Install stays disabled.
+    /// </summary>
+    public bool CanInstallUpdate => _host.Updates.CanInstall;
 
     /// <summary>The root sequence being edited (the editor treats the root as an infinite loop).</summary>
     public StepListViewModel Sequence { get; } = new("Sequence");
@@ -275,6 +294,15 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
             RefreshHotkeyWarning();
         }
     }
+
+    [RelayCommand]
+    private async Task InstallUpdate() => await _host.Updates.InstallAndRestartAsync();
+
+    [RelayCommand]
+    private void SkipUpdate() => _host.Updates.SkipCurrentVersion();
+
+    [RelayCommand]
+    private void DismissUpdate() => _host.Updates.DismissForNow();
 
     /// <summary>Tests the profile being edited - starts it, or stops whatever is running.</summary>
     [RelayCommand]

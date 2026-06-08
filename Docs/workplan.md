@@ -11,10 +11,13 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   awaiting full manual testing.
 - **Last updated:** 2026-06-08
 - **Build status:** `dotnet build` green (0 warnings); `dotnet test` green (40/40 passing).
-- **Latest:** NVIDIA Display tab shipped and confirmed working - per-monitor sliders for
-  Brightness / Contrast / Gamma / Digital Vibrance / Hue, plus a global "Display preset"
-  toggle in the bottom-right of the action bar (flips every monitor with a saved preset
-  between its preset and NVIDIA defaults). Hidden when NVAPI is unavailable.
+- **Latest:** Release pipeline + auto-update. GitHub Actions release workflow on push to
+  main reads `Directory.Build.props`, skips if a tag for that version already exists,
+  otherwise builds + tests + Velopack-packs win-x64 self-contained and publishes a GitHub
+  Release. `Scripts/bump-version.sh [Major|Minor|Patch]` bumps locally (default Patch). The
+  app checks GitHub Releases on startup + hourly via `UpdateService`; an update banner sits
+  at the top of the config window with Install / Skip / Later. NVIDIA Display tab (previous
+  shipped feature) unchanged.
 - **Notes:** .NET 10 SDK 10.0.203. Solution has 3 projects under `Src/` and `Tests/`.
   Klakr.Core is pure (no UI/platform deps) and fully unit-tested. Full app: config window
   (profile list w/ enabled state + nested sequence editor + sequence type + default/per-key
@@ -118,6 +121,19 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   store yet; per-profile JSON is the wrong home for a global key). Listed under Remaining polish.
 - **Platform warning is an in-window banner**, not a separate dialog - one persistent bar in the
   config window covers both the Wayland block and the macOS Accessibility note.
+- **Version is a single 3-part SemVer in `Directory.Build.props`** - inherited by every csproj.
+  `Scripts/bump-version.sh` is the only thing that writes it; CI reads it and uses it verbatim
+  as the release tag (`vX.Y.Z`), so the pipeline never commits. Pushes without a bump are a
+  no-op (the release-exists check). 3-part not 4-part because Velopack/NuGet are happiest with
+  standard SemVer; the auto-bumped segment is Patch. `IncludeSourceRevisionInInformationalVersion`
+  is disabled so the in-process informational version stays clean (no `+a1b2c3d` git suffix).
+- **Auto-update via Velopack against GitHub Releases.** `Program.Main` calls
+  `VelopackApp.Build().Run()` first; `UpdateService` (owned by `AppHost`) polls every hour
+  with a 5-second startup delay, swallows network failures silently, and exposes a single
+  observable `AvailableVersion` the config window banner binds to. `SkippedUpdateVersion`
+  persists in `AppSettings` so "Skip this version" sticks until a newer one appears. Banner
+  lives only on the config window (no tray badge, no overlay change). No code signing, no
+  release notes, no channels - keep the surface small.
 
 ## Known edges (revisit in Phase 4 config validation)
 

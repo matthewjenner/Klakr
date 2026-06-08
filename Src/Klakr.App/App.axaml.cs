@@ -58,7 +58,6 @@ public partial class App : Application
     {
         var icon = new TrayIcon
         {
-            ToolTipText = "Klakr",
             IsVisible = true,
         };
 
@@ -72,6 +71,9 @@ public partial class App : Application
             // A missing tray image is non-fatal - the menu still works.
         }
 
+        // Disabled item at the top of the menu - just a place to see what version is running.
+        var version = new NativeMenuItem { Header = $"Klakr v{AppVersion.Display}", IsEnabled = false };
+
         var show = new NativeMenuItem { Header = "Show Klakr" };
         show.Click += (_, _) => ShowConfigWindow();
 
@@ -79,9 +81,13 @@ public partial class App : Application
         quit.Click += (_, _) => Quit();
 
         var menu = new NativeMenu();
+        menu.Items.Add(version);
+        menu.Items.Add(new NativeMenuItemSeparator());
         menu.Items.Add(show);
         menu.Items.Add(quit);
         icon.Menu = menu;
+
+        icon.ToolTipText = $"Klakr v{AppVersion.Display}";
 
         icon.Clicked += (_, _) => ShowConfigWindow();
         return icon;

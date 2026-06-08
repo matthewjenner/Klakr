@@ -6,7 +6,7 @@
         x:Class="Klakr.App.Views.ConfigWindow"
         x:CompileBindings="False"
         Icon="/Assets/icon.ico"
-        Title="Klakr - Config" Width="940" Height="640"
+        Title="{Binding WindowTitle}" Width="940" Height="640"
         MinWidth="720" MinHeight="480">
 
     <Window.Resources>
@@ -184,6 +184,24 @@
     </Window.DataTemplates>
 
     <DockPanel>
+
+      <!-- Update banner - sits above the platform notice so both can show if needed. -->
+      <Border DockPanel.Dock="Top" Background="#1F4D2F" Padding="12,8"
+              IsVisible="{Binding IsUpdateBannerVisible}">
+          <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" VerticalAlignment="Center" Foreground="#B8F0C6"
+                         Text="{Binding AvailableUpdateVersion, StringFormat='Update available: v{0}'}" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                  <Button Content="Install and restart"
+                          Command="{Binding InstallUpdateCommand}"
+                          IsEnabled="{Binding CanInstallUpdate}"
+                          ToolTip.Tip="Downloads the update via Velopack and restarts. Disabled in dev builds." />
+                  <Button Content="Skip this version" Command="{Binding SkipUpdateCommand}" />
+                  <Button Content="Later" Command="{Binding DismissUpdateCommand}"
+                          ToolTip.Tip="Hide until the next hourly check." />
+              </StackPanel>
+          </Grid>
+      </Border>
 
       <!-- Platform warning banner (Wayland / macOS) -->
       <Border DockPanel.Dock="Top" Background="#3D2A00" Padding="12,8"

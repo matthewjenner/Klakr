@@ -23,6 +23,11 @@ ergonomics/automation tool, used at your own risk in any given game. See *Fair u
   bottom action bar that flips all monitors-with-saved-presets between the preset and the
   NVIDIA defaults. Same settings as the NVIDIA Control Panel's "Adjust desktop color
   settings" page, without leaving Klakr. The tab is hidden on non-NVIDIA setups.
+- **Auto-update** - the app checks GitHub Releases on startup and once an hour. When a
+  newer version exists a banner appears at the top of the config window with Install,
+  Skip-this-version and Later buttons. Updates are delivered via Velopack and applied
+  in-place. Dev builds (`dotnet run`) check too, but the Install button is disabled - the
+  installer artifact needs to have been bootstrapped from a release first.
 
 ## Requirements
 
@@ -83,8 +88,47 @@ disallow input automation regardless of intent. **Using Klakr is at your own ris
 ## Project layout
 
 ```
-Src/Klakr.Core/    Pure logic - steps, engine, persistence. No UI or platform code.
-Src/Klakr.App/     Avalonia UI, SharpHook input adapter, platform code.
-Tests/             xUnit tests for Klakr.Core.
-Docs/              DESIGN.md, TECHARCH.md, workplan.md.
+Src/Klakr.Core/         Pure logic - steps, engine, persistence. No UI or platform code.
+Src/Klakr.App/          Avalonia UI, SharpHook input adapter, platform code.
+Tests/                  xUnit tests for Klakr.Core.
+Docs/                   DESIGN.md, TECHARCH.md, workplan.md.
+Scripts/                Bash helpers: run.sh (clean+build+run), bump-version.sh.
+.github/workflows/      Release pipeline - reads Directory.Build.props, ships to Releases.
 ```
+
+## Releasing (maintainer notes)
+
+The running version is shown in the config window title bar (`Klakr v1.0.0 - Config`) and
+as a disabled item at the top of the system tray menu, so you can always see what you've
+got installed.
+
+Version lives in `Directory.Build.props` (a single `<VersionPrefix>` line). Bump it, push
+to `main`, and the workflow does the rest:
+
+```bash
+./Scripts/bump-version.sh           # 1.0.0 -> 1.0.1 (default: Patch)
+./Scripts/bump-version.sh Minor     # 1.0.5 -> 1.1.0
+./Scripts/bump-version.sh Major     # 1.4.2 -> 2.0.0
+git commit -am "Release vX.Y.Z" && git push
+```
+
+### Dev workflow
+
+The version flow is decoupled from your local build. You do **not** need to `dotnet build`
+or `dotnet test` before pushing for the release pipeline to work - CI does that fresh from
+your pushed source. Local builds are just for your own sanity.
+
+CI is idempotent: on every push to `main` it reads `Directory.Build.props`, and if a
+GitHub release for `vX.Y.Z` already exists it exits clean without doing anything. So:
+
+- **Code change only, no bump?** Push freely. CI sees the existing release and no-ops.
+  Bump and push again when you're ready to ship.
+- **Forgot to commit the bump?** `git status` will show `Directory.Build.props` modified -
+  catch it before push. (If you push anyway and realise after, just bump and push - no harm.)
+- **Bumped twice between releases?** Fine. CI uses whatever the current value is. There's
+  no version-skipping problem; gaps in release numbers are allowed.
+
+The only failure mode worth knowing: if you bump locally, install that build from the
+release artifact you produced *manually* (i.e. not via CI), and then later push without
+that bump committed, your installed app's version won't match anything that's actually on
+GitHub Releases. Avoid manually-installed builds for daily use - let CI produce them.

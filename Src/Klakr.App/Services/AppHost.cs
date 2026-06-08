@@ -22,6 +22,7 @@ public sealed class AppHost : IDisposable
     private readonly KeyState _keyState = new();
     private readonly Lock _gate = new();
     private readonly SettingsStore _settingsStore;
+    private readonly UpdateService _updates;
 
     private List<Profile> _armed = [];
     private Profile? _running;
@@ -58,6 +59,9 @@ public sealed class AppHost : IDisposable
 
         _input.KeyPressed += OnKeyPressed;
         _input.KeyReleased += OnKeyReleased;
+
+        // Built last so it can read Settings.SkippedUpdateVersion and call back into UpdateSettings.
+        _updates = new UpdateService(this);
     }
 
     public SequenceEngine Engine { get; }
@@ -75,6 +79,9 @@ public sealed class AppHost : IDisposable
 
     /// <summary>NVIDIA-attached monitor device names (empty when NVAPI is unavailable).</summary>
     public IReadOnlyList<string> MonitorNames { get; }
+
+    /// <summary>Tracks the latest GitHub release and backs the config window's update banner.</summary>
+    public UpdateService Updates => _updates;
 
     /// <summary>NVIDIA's default values - what "Restore Defaults" in the control panel sets.</summary>
     public static DisplayPreset DefaultDisplayPreset { get; }
@@ -284,6 +291,7 @@ public sealed class AppHost : IDisposable
         _input.KeyReleased -= OnKeyReleased;
         Engine.Stop();
         _input.Dispose();
+        _updates.Dispose();
 
         if (IsNvidiaAvailable && OperatingSystem.IsWindows())
             DisplayController.Shutdown();

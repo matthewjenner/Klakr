@@ -26,4 +26,10 @@ public sealed record AppSettings
 
     /// <summary>The monitor selected in the Display tab dropdown last time.</summary>
     public string? LastDisplayName { get; init; }
+
+    /// <summary>
+    /// The semver of a release the user explicitly clicked "skip" on. While that version is the
+    /// latest, the update banner stays hidden; a newer release re-arms it.
+    /// </summary>
+    public string? SkippedUpdateVersion { get; init; }
 }

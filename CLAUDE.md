@@ -11,6 +11,7 @@ See `Docs/DESIGN.md` for product detail and `Docs/TECHARCH.md` for the full arch
 - CommunityToolkit.Mvvm (MVVM source generators)
 - SharpHook (input hooks + synthesis; wraps libuiohook)
 - NvAPIWrapper.Net (NVIDIA color settings; only loaded if NVAPI is available, gates the Display tab)
+- Velopack (in-app update check + release packaging via the `vpk` CLI in CI)
 - System.Text.Json (polymorphic step serialization)
 - xUnit + FluentAssertions (tests)
 
@@ -21,7 +22,9 @@ Src/Klakr.Core/             Pure logic - steps, engine, hook abstractions. No UI
 Src/Klakr.App/              Avalonia app, SharpHook adapter, ViewModels, Views, platform code.
 Tests/Klakr.Core.Tests/     xUnit tests for Core.
 Docs/                       DESIGN.md, TECHARCH.md, workplan.md.
-Scripts/                    Dev helper scripts (run.sh).
+Scripts/                    Bash helpers - run.sh (clean+build+run), bump-version.sh.
+.github/workflows/          release.yml - reads Directory.Build.props, ships via Velopack.
+Directory.Build.props       Single source of truth for the app version.
 ```
 
 ## Build & run
@@ -73,6 +76,8 @@ dotnet test
 - **Add a profile-level setting**: add a property to `Profile`, surface it in `ConfigWindowViewModel`, bind it in the config view, ensure it round-trips through `ProfileStore` serialization, add a test.
 - **Add an app-wide setting**: add a property to `AppSettings` (Klakr.App), surface it in `ConfigWindowViewModel`, push changes via `AppHost.UpdateSettings`; it persists to `settings.json` via `SettingsStore`.
 - **Change hotkey behavior**: matching lives in `Hotkey.Matches` (key-only - modifier-agnostic by design); capture lives in `AppHost.CaptureNextHotkeyAsync`.
+- **Cut a release**: run `./Scripts/bump-version.sh` (default Patch; pass `Minor` or `Major` to bump those), commit, push to `main`. `.github/workflows/release.yml` reads `Directory.Build.props`, skips if a release for that version already exists, otherwise tests + Velopack-packs win-x64 self-contained + uploads to GitHub Releases as `vX.Y.Z`. Plain pushes without a bump are a no-op. CI never commits.
+- **Tweak the update check**: `Services/UpdateService.cs` polls GitHub via Velopack (5 s startup delay, hourly cadence, silent on network failures). `AppSettings.SkippedUpdateVersion` persists the "Skip this version" choice. Banner state lives on `ConfigWindowViewModel.AvailableUpdateVersion`; the banner row is the topmost dock in `ConfigWindow.axaml`.
 
 ## What NOT to do
 

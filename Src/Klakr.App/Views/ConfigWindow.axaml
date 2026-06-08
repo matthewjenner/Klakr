@@ -239,56 +239,141 @@
             </DockPanel>
         </Border>
 
-        <!-- Right: editor -->
+        <!-- Right: tabs + always-visible action bar -->
         <DockPanel Grid.Column="1">
 
-            <!-- Profile metadata -->
-            <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="Profile name:" VerticalAlignment="Center" Width="90" />
-                    <TextBox Width="220" Text="{Binding ProfileName}" />
-                    <CheckBox Content="Enabled (listens for its hotkey)" VerticalAlignment="Center"
-                              IsChecked="{Binding ProfileEnabled}" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="Hotkey:" VerticalAlignment="Center" Width="90" />
-                    <TextBlock Text="{Binding HotkeyText}" VerticalAlignment="Center" MinWidth="160"
-                               FontWeight="Bold" />
-                    <Button Content="Set hotkey" Command="{Binding CaptureHotkeyCommand}" />
-                    <TextBlock Text="{Binding HotkeyWarning}" Foreground="Orange"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="Sequence type:" VerticalAlignment="Center" Width="90" />
-                    <ComboBox Width="150" ItemsSource="{Binding AllSequenceTypes}"
-                              SelectedItem="{Binding Ordering}" />
-                    <TextBlock Text="Burst x" VerticalAlignment="Center" />
-                    <TextBox Classes="num" Text="{Binding BurstCount, Converter={StaticResource IntText}}"
-                             IsEnabled="{Binding IsBurst}" />
-                    <TextBlock Text="Default delay ms:" VerticalAlignment="Center" Margin="12,0,0,0" />
-                    <TextBox Classes="num" Text="{Binding DefaultDelayMinMs, Converter={StaticResource IntText}}" />
-                    <TextBlock Text="to" VerticalAlignment="Center" />
-                    <TextBox Classes="num" Text="{Binding DefaultDelayMaxMs, Converter={StaticResource IntText}}" />
-                </StackPanel>
-            </StackPanel>
-
-            <!-- Action bar -->
+            <!-- Action bar (always visible across all tabs) -->
             <Border DockPanel.Dock="Bottom" Background="#18808080" CornerRadius="4"
                     Padding="8" Margin="0,8,0,0">
-                <StackPanel Orientation="Horizontal" Spacing="10">
-                    <Button Content="Save profile" Command="{Binding SaveCommand}" />
-                    <Button Content="Test (start / stop)" Command="{Binding ToggleEngineCommand}" />
-                    <TextBlock Text="Engine:" VerticalAlignment="Center" Foreground="Gray" />
-                    <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" FontWeight="Bold" />
-                </StackPanel>
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                        <Button Content="Save profile" Command="{Binding SaveCommand}" />
+                        <Button Content="Test (start / stop)" Command="{Binding ToggleEngineCommand}" />
+                        <TextBlock Text="Engine:" VerticalAlignment="Center" Foreground="Gray" />
+                        <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" FontWeight="Bold" />
+                    </StackPanel>
+                    <ToggleButton Grid.Column="1" Content="Display preset"
+                                  IsChecked="{Binding DisplayPresetActive}"
+                                  IsVisible="{Binding IsNvidiaAvailable}"
+                                  ToolTip.Tip="On: apply each monitor's saved preset. Off: restore NVIDIA defaults." />
+                </Grid>
             </Border>
 
-            <!-- Sequence editor -->
-            <HeaderedContentControl Header="Sequence (runs on a loop while toggled on)">
-                <ScrollViewer Margin="0,6,0,0">
-                    <ContentControl Content="{Binding Sequence}" />
-                </ScrollViewer>
-            </HeaderedContentControl>
+            <!-- Tabs -->
+            <TabControl SelectedIndex="0">
+
+                <TabItem Header="Sequence">
+                    <DockPanel>
+                        <!-- Profile metadata -->
+                        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,8,0,8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Profile name:" VerticalAlignment="Center" Width="90" />
+                                <TextBox Width="220" Text="{Binding ProfileName}" />
+                                <CheckBox Content="Enabled (listens for its hotkey)" VerticalAlignment="Center"
+                                          IsChecked="{Binding ProfileEnabled}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Hotkey:" VerticalAlignment="Center" Width="90" />
+                                <TextBlock Text="{Binding HotkeyText}" VerticalAlignment="Center" MinWidth="160"
+                                           FontWeight="Bold" />
+                                <Button Content="Set hotkey" Command="{Binding CaptureHotkeyCommand}" />
+                                <TextBlock Text="{Binding HotkeyWarning}" Foreground="Orange"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Sequence type:" VerticalAlignment="Center" Width="90" />
+                                <ComboBox Width="150" ItemsSource="{Binding AllSequenceTypes}"
+                                          SelectedItem="{Binding Ordering}" />
+                                <TextBlock Text="Burst x" VerticalAlignment="Center" />
+                                <TextBox Classes="num" Text="{Binding BurstCount, Converter={StaticResource IntText}}"
+                                         IsEnabled="{Binding IsBurst}" />
+                                <TextBlock Text="Default delay ms:" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                <TextBox Classes="num" Text="{Binding DefaultDelayMinMs, Converter={StaticResource IntText}}" />
+                                <TextBlock Text="to" VerticalAlignment="Center" />
+                                <TextBox Classes="num" Text="{Binding DefaultDelayMaxMs, Converter={StaticResource IntText}}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Sequence editor -->
+                        <HeaderedContentControl Header="Sequence (runs on a loop while toggled on)">
+                            <ScrollViewer Margin="0,6,0,0">
+                                <ContentControl Content="{Binding Sequence}" />
+                            </ScrollViewer>
+                        </HeaderedContentControl>
+                    </DockPanel>
+                </TabItem>
+
+                <TabItem Header="Display" IsVisible="{Binding IsNvidiaAvailable}">
+                    <ScrollViewer>
+                        <StackPanel Spacing="14" Margin="8,12,8,8">
+
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Monitor:" VerticalAlignment="Center" Width="90" />
+                                <ComboBox Width="320" ItemsSource="{Binding MonitorNames}"
+                                          SelectedItem="{Binding SelectedMonitor}" />
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="120,*,70"
+                                  RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                  RowSpacing="10" ColumnSpacing="8">
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Brightness"
+                                           VerticalAlignment="Center" />
+                                <Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="100"
+                                        TickFrequency="1" IsSnapToTickEnabled="True"
+                                        Value="{Binding DisplayBrightness}" />
+                                <TextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right"
+                                           Text="{Binding DisplayBrightness, StringFormat='{}{0} %'}" />
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Contrast"
+                                           VerticalAlignment="Center" />
+                                <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="100"
+                                        TickFrequency="1" IsSnapToTickEnabled="True"
+                                        Value="{Binding DisplayContrast}" />
+                                <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right"
+                                           Text="{Binding DisplayContrast, StringFormat='{}{0} %'}" />
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Gamma"
+                                           VerticalAlignment="Center" />
+                                <Slider Grid.Row="2" Grid.Column="1" Minimum="0.30" Maximum="2.80"
+                                        TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                        Value="{Binding DisplayGamma}" />
+                                <TextBlock Grid.Row="2" Grid.Column="2" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right"
+                                           Text="{Binding DisplayGamma, StringFormat='{}{0:0.00}'}" />
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Digital vibrance"
+                                           VerticalAlignment="Center" />
+                                <Slider Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="100"
+                                        TickFrequency="1" IsSnapToTickEnabled="True"
+                                        Value="{Binding DisplayVibrance}" />
+                                <TextBlock Grid.Row="3" Grid.Column="2" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right"
+                                           Text="{Binding DisplayVibrance, StringFormat='{}{0} %'}" />
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Hue"
+                                           VerticalAlignment="Center" />
+                                <Slider Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="359"
+                                        TickFrequency="1" IsSnapToTickEnabled="True"
+                                        Value="{Binding DisplayHue}" />
+                                <TextBlock Grid.Row="4" Grid.Column="2" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right"
+                                           Text="{Binding DisplayHue, StringFormat='{}{0}°'}" />
+                            </Grid>
+
+                            <Button Content="Save preset for this monitor"
+                                    Command="{Binding SaveDisplayPresetCommand}"
+                                    HorizontalAlignment="Left" />
+
+                            <TextBlock Foreground="Gray" TextWrapping="Wrap"
+                                       Text="Sliders preview live on the selected monitor. Click Save to capture as the monitor's preset. The 'Display preset' toggle in the bottom bar flips all monitors with saved presets between their preset and NVIDIA defaults." />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+            </TabControl>
 
         </DockPanel>
       </Grid>

@@ -22,6 +22,7 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
     private readonly AppHost _host;
     private bool _suppressProfileLoad;
     private bool _suppressSettingsPush;
+    private bool _suppressDisplayApply;
     private Hotkey _hotkey = Hotkey.None;
 
     // The on-disk name the edited profile was loaded under, or null for an unsaved new profile.
@@ -74,16 +75,44 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
     [ObservableProperty]
     private int _overlayOffsetY;
 
+    [ObservableProperty]
+    private string? _selectedMonitor;
+
+    [ObservableProperty]
+    private int _displayBrightness = 50;
+
+    [ObservableProperty]
+    private int _displayContrast = 50;
+
+    [ObservableProperty]
+    private double _displayGamma = 1.0;
+
+    [ObservableProperty]
+    private int _displayVibrance = 50;
+
+    [ObservableProperty]
+    private int _displayHue;
+
+    [ObservableProperty]
+    private bool _displayPresetActive;
+
     public ConfigWindowViewModel(AppHost host)
     {
         _host = host;
         PlatformNotice = PlatformChecks.StartupNotice();
 
         _suppressSettingsPush = true;
+        _suppressDisplayApply = true;
         OverlayVisible = host.Settings.OverlayVisible;
         OverlayAnchor = host.Settings.OverlayAnchor;
         OverlayOffsetX = host.Settings.OverlayOffsetX;
         OverlayOffsetY = host.Settings.OverlayOffsetY;
+        DisplayPresetActive = host.Settings.DisplayPresetActive;
+        // Setting SelectedMonitor triggers OnSelectedMonitorChanged, which loads its preset
+        // into the sliders. Both suppress flags keep that from applying or persisting at startup.
+        SelectedMonitor = host.Settings.LastDisplayName
+            ?? host.MonitorNames.FirstOrDefault();
+        _suppressDisplayApply = false;
         _suppressSettingsPush = false;
 
         RefreshProfiles();
@@ -104,6 +133,12 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
     public string? PlatformNotice { get; }
 
     public bool HasPlatformNotice => !string.IsNullOrEmpty(PlatformNotice);
+
+    /// <summary>True when NVAPI loaded; gates the Display tab and bottom toggle.</summary>
+    public bool IsNvidiaAvailable => _host.IsNvidiaAvailable;
+
+    /// <summary>Monitors NVIDIA reports, for the Display tab's dropdown.</summary>
+    public IReadOnlyList<string> MonitorNames => _host.MonitorNames;
 
     /// <summary>The root sequence being edited (the editor treats the root as an infinite loop).</summary>
     public StepListViewModel Sequence { get; } = new("Sequence");
@@ -354,6 +389,91 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
             OverlayOffsetX = OverlayOffsetX,
             OverlayOffsetY = OverlayOffsetY,
         });
+    }
+
+    // --- Display tab ---
+
+    partial void OnSelectedMonitorChanged(string? value)
+    {
+        LoadDisplayPresetForSelected();
+        if (_suppressSettingsPush)
+            return;
+        _host.UpdateSettings(_host.Settings with { LastDisplayName = value });
+    }
+
+    partial void OnDisplayBrightnessChanged(int value) => ApplyLiveSliders();
+
+    partial void OnDisplayContrastChanged(int value) => ApplyLiveSliders();
+
+    partial void OnDisplayGammaChanged(double value) => ApplyLiveSliders();
+
+    partial void OnDisplayVibranceChanged(int value) => ApplyLiveSliders();
+
+    partial void OnDisplayHueChanged(int value) => ApplyLiveSliders();
+
+    partial void OnDisplayPresetActiveChanged(bool value)
+    {
+        if (_suppressSettingsPush)
+            return;
+        _host.UpdateSettings(_host.Settings with { DisplayPresetActive = value });
+        if (value)
+            _host.ApplyAllDisplayPresets();
+        else
+            _host.RestoreAllDisplayDefaults();
+    }
+
+    /// <summary>Captures the current slider values as the saved preset for the selected monitor.</summary>
+    [RelayCommand]
+    private void SaveDisplayPreset()
+    {
+        if (string.IsNullOrEmpty(SelectedMonitor))
+            return;
+
+        var preset = CurrentSliderPreset();
+        var presets = new Dictionary<string, DisplayPreset>(_host.Settings.DisplayPresets)
+        {
+            [SelectedMonitor] = preset,
+        };
+        _host.UpdateSettings(_host.Settings with { DisplayPresets = presets });
+    }
+
+    private DisplayPreset CurrentSliderPreset() => new(
+        Brightness: DisplayBrightness,
+        Contrast: DisplayContrast,
+        Gamma: DisplayGamma,
+        DigitalVibrance: DisplayVibrance,
+        Hue: DisplayHue);
+
+    /// <summary>
+    /// Loads the saved preset (or NVIDIA defaults) for the currently selected monitor into the
+    /// sliders. Suppresses the live-apply while doing so, so a switch does not blast a partial
+    /// state to NVIDIA mid-load.
+    /// </summary>
+    private void LoadDisplayPresetForSelected()
+    {
+        if (string.IsNullOrEmpty(SelectedMonitor))
+            return;
+
+        DisplayPreset preset = _host.Settings.DisplayPresets.TryGetValue(SelectedMonitor, out DisplayPreset? saved)
+            ? saved
+            : AppHost.DefaultDisplayPreset;
+
+        bool previous = _suppressDisplayApply;
+        _suppressDisplayApply = true;
+        DisplayBrightness = preset.Brightness;
+        DisplayContrast = preset.Contrast;
+        DisplayGamma = preset.Gamma;
+        DisplayVibrance = preset.DigitalVibrance;
+        DisplayHue = preset.Hue;
+        _suppressDisplayApply = previous;
+    }
+
+    /// <summary>Live-applies the current slider values to the selected monitor.</summary>
+    private void ApplyLiveSliders()
+    {
+        if (_suppressDisplayApply || string.IsNullOrEmpty(SelectedMonitor))
+            return;
+        _host.ApplyToMonitor(SelectedMonitor, CurrentSliderPreset());
     }
 
     /// <summary>

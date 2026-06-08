@@ -6,6 +6,7 @@
 - **UI**: Avalonia 11 (cross-platform)
 - **MVVM**: CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]` source generators)
 - **Input hooks & synthesis**: SharpHook (wraps libuiohook; Windows, macOS, Linux/X11)
+- **NVIDIA color control** (Windows only, optional): NvAPIWrapper.Net for Digital Vibrance and Hue; GDI `SetDeviceGammaRamp` for Brightness, Contrast, Gamma. The Display tab is hidden when NVAPI is unavailable.
 - **Serialization**: System.Text.Json with polymorphic step (de)serialization via `JsonPolymorphismOptions`
 - **Tests**: xUnit + FluentAssertions
 
@@ -46,7 +47,8 @@ Klakr/
 │       ├── Services/
 │       │   └── AppHost.cs              # Composition root, owns engine + windows
 │       ├── Platform/
-│       │   ├── Windows/                # P/Invoke for WS_EX_TRANSPARENT, etc.
+│       │   ├── Windows/                # P/Invoke for WS_EX_TRANSPARENT, gamma ramp, etc.
+│       │   │   └── Nvidia/             # NVAPI wrappers + DisplayController
 │       │   ├── MacOS/
 │       │   └── Linux/
 │       ├── App.axaml
@@ -226,4 +228,5 @@ Use `JsonSerializerOptions` with `JsonPolymorphismOptions` configured on the `IS
 - `CommunityToolkit.Mvvm`
 - `SharpHook`
 - `SharpHook.Reactive` (optional, if you want Rx-style event streams)
+- `NvAPIWrapper.Net` (Windows-only at runtime; load failure is non-fatal and just hides the Display tab)
 - `xunit`, `xunit.runner.visualstudio`, `FluentAssertions` (test project)

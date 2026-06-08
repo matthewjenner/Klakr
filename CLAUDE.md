@@ -10,6 +10,7 @@ See `Docs/DESIGN.md` for product detail and `Docs/TECHARCH.md` for the full arch
 - Avalonia 12 (UI)
 - CommunityToolkit.Mvvm (MVVM source generators)
 - SharpHook (input hooks + synthesis; wraps libuiohook)
+- NvAPIWrapper.Net (NVIDIA color settings; only loaded if NVAPI is available, gates the Display tab)
 - System.Text.Json (polymorphic step serialization)
 - xUnit + FluentAssertions (tests)
 
@@ -68,6 +69,7 @@ dotnet test
 
 - **Add a new step type**: implement `IStep` in `Klakr.Core/Steps/`, register the type in `JsonPolymorphismOptions`, add a corresponding ViewModel under `Klakr.App/ViewModels/Steps/`, add an editor row template in the sequence editor View, add Core tests.
 - **Change overlay appearance**: edit `OverlayWindow.axaml`. Keep it borderless, transparent-background, topmost, not focusable, click-through. No window chrome.
+- **Touch NVIDIA color settings**: per-monitor calls go through `DisplayController.ApplyToMonitor(name, preset)` in `Platform/Windows/Nvidia/`. DV and Hue are NvAPIWrapper (`DisplayApi.SetDVCLevelEx`/`SetHUEAngle`); Brightness/Contrast/Gamma are GDI `SetDeviceGammaRamp` via `Platform/Windows/GammaRamp.cs`. Always guard with `OperatingSystem.IsWindows()` and `AppHost.IsNvidiaAvailable`.
 - **Add a profile-level setting**: add a property to `Profile`, surface it in `ConfigWindowViewModel`, bind it in the config view, ensure it round-trips through `ProfileStore` serialization, add a test.
 - **Add an app-wide setting**: add a property to `AppSettings` (Klakr.App), surface it in `ConfigWindowViewModel`, push changes via `AppHost.UpdateSettings`; it persists to `settings.json` via `SettingsStore`.
 - **Change hotkey behavior**: matching lives in `Hotkey.Matches` (key-only - modifier-agnostic by design); capture lives in `AppHost.CaptureNextHotkeyAsync`.

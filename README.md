@@ -18,6 +18,11 @@ ergonomics/automation tool, used at your own risk in any given game. See *Fair u
 - **Always-on-top status dot** - green while running, red while idle; click-through on Windows. Reposition it (nine anchors plus a nudge) or turn it off entirely in settings.
 - **System tray** - the config window closes to the tray; quit from the tray menu.
 - **Panic stop** - the `Pause` key immediately halts any running sequence.
+- **NVIDIA display preset** (NVIDIA-only, Windows) - a Display tab with per-monitor sliders
+  for Brightness, Contrast, Gamma, Digital Vibrance and Hue, plus a single toggle in the
+  bottom action bar that flips all monitors-with-saved-presets between the preset and the
+  NVIDIA defaults. Same settings as the NVIDIA Control Panel's "Adjust desktop color
+  settings" page, without leaving Klakr. The tab is hidden on non-NVIDIA setups.
 
 ## Requirements
 

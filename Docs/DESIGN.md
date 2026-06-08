@@ -65,6 +65,13 @@ Each sequence has a default delay applied after every key tap, set at the top of
 - Always on top of all windows.
 - Can be hidden entirely from settings if undesired.
 
+### Display preset (NVIDIA, Windows-only)
+
+- A **Display** tab exposes the NVIDIA "Adjust desktop color settings" sliders per monitor: Brightness / Contrast (0-100%), Gamma (0.30-2.80), Digital Vibrance (0-100%), Hue (0-359°).
+- Pick a monitor from a dropdown (remembers the last selection), slide values for live preview, click **Save preset for this monitor** to capture the slider values as that monitor's preset.
+- A single **Display preset** toggle in the bottom-right of the action bar flips every monitor-with-a-saved-preset between its preset and the NVIDIA defaults. Toggle state persists; on startup, if it was on, all saved presets are reapplied.
+- DV and Hue go through NVAPI; Brightness / Contrast / Gamma go through Windows' GDI gamma ramp (the same mechanism `dccw.exe` uses). The whole tab and toggle are hidden when NVAPI is unavailable.
+
 ## User flows
 
 ### First-time setup

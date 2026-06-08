@@ -9,8 +9,12 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
 
 - **Phase:** all phases (0-5) complete - **v1 feature-complete.** Code-review pass done;
   awaiting full manual testing.
-- **Last updated:** 2026-05-18
+- **Last updated:** 2026-06-08
 - **Build status:** `dotnet build` green (0 warnings); `dotnet test` green (40/40 passing).
+- **Latest:** NVIDIA Display tab shipped and confirmed working - per-monitor sliders for
+  Brightness / Contrast / Gamma / Digital Vibrance / Hue, plus a global "Display preset"
+  toggle in the bottom-right of the action bar (flips every monitor with a saved preset
+  between its preset and NVIDIA defaults). Hidden when NVAPI is unavailable.
 - **Notes:** .NET 10 SDK 10.0.203. Solution has 3 projects under `Src/` and `Tests/`.
   Klakr.Core is pure (no UI/platform deps) and fully unit-tested. Full app: config window
   (profile list w/ enabled state + nested sequence editor + sequence type + default/per-key
@@ -83,6 +87,18 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   apply and save live. Replaced the old corners-only `OverlayCorner`.
 - **Plain ASCII punctuation everywhere** - no em-dashes, en-dashes or unicode ellipsis in UI
   text, code, comments or docs. The user dislikes AI-artifact punctuation; keep it ASCII.
+- **NVIDIA Display tab: hybrid NVAPI + GDI** (Path A). DV and Hue go through `NvAPIWrapper.Net`
+  (`DisplayApi.SetDVCLevelEx`, `SetHUEAngle`). Brightness / Contrast / Gamma go through Windows
+  GDI `SetDeviceGammaRamp` with standard LUT math, because the NvAPIWrapper package does not
+  surface NVAPI's gamma-ramp call. The tab and the bottom toggle are hidden when NVAPI is
+  unavailable. If GDI gamma turns out to fight the NVIDIA driver in practice (driver re-asserts
+  its own LUT on game launches, etc.), fall back to **Path B**: direct P/Invoke to `nvapi64.dll`
+  for `NvAPI_SetDisplayGammaRamp` (more interop, exactly matches the NVIDIA Control Panel).
+- **Display preset model: per-monitor values, all-or-nothing toggle.** Each monitor has its own
+  saved `DisplayPreset` (B 0-100, C 0-100, Gamma 0.30-2.80, DV 0-100, Hue 0-359). The toggle
+  applies (or restores defaults on) every monitor with a saved preset at once. Defaults are the
+  NVIDIA panel defaults: B 50 / C 50 / Gamma 1.00 / DV 50 / Hue 0. Dropdown remembers the last
+  selected monitor; sliders preview live on the selected monitor; Save captures.
 - **Duplicate profile** - copies the current editor content to the next free `name (N)`,
   counting up from `(1)` (it just takes the lowest unused number; deliberately not robust). An
   existing `(N)` suffix is stripped first.
@@ -240,6 +256,8 @@ sequence-wide default delay after each key, overridable per key.
 - [x] Overlay hide/show toggle in settings (done - "Show overlay" checkbox, persisted)
 - [ ] Guard the empty-infinite-loop CPU spin (see Known edges) via editor validation
 - [ ] macOS: real Accessibility-permission check rather than an always-on note
+- [ ] Display tab Path B fallback: if GDI gamma fights the NVIDIA driver in practice, swap B/C/G
+      over to a direct P/Invoke for `NvAPI_SetDisplayGammaRamp` (NvAPIWrapper does not expose it)
 
 ---
 

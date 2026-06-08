@@ -1,4 +1,5 @@
 using Klakr.App.Input;
+using Klakr.App.Platform.Windows.Nvidia;
 using Klakr.Core;
 using Klakr.Core.Engine;
 using Klakr.Core.Input;
@@ -40,6 +41,18 @@ public sealed class AppHost : IDisposable
         _settingsStore = new SettingsStore(ProfilePaths.SettingsFilePath);
         Settings = _settingsStore.Load();
 
+        if (OperatingSystem.IsWindows() && DisplayController.TryInitialize())
+        {
+            IsNvidiaAvailable = true;
+            MonitorNames = DisplayController.MonitorNames;
+            if (Settings.DisplayPresetActive)
+                ApplyAllDisplayPresets();
+        }
+        else
+        {
+            MonitorNames = [];
+        }
+
         EnsureAtLeastOneProfile();
         ReloadArmedProfiles();
 
@@ -56,6 +69,16 @@ public sealed class AppHost : IDisposable
 
     /// <summary>Raised after <see cref="Settings"/> changes - fired on the caller's thread.</summary>
     public event Action<AppSettings>? SettingsChanged;
+
+    /// <summary>True when NVAPI is loaded and the Display tab should be available.</summary>
+    public bool IsNvidiaAvailable { get; }
+
+    /// <summary>NVIDIA-attached monitor device names (empty when NVAPI is unavailable).</summary>
+    public IReadOnlyList<string> MonitorNames { get; }
+
+    /// <summary>NVIDIA's default values - what "Restore Defaults" in the control panel sets.</summary>
+    public static DisplayPreset DefaultDisplayPreset { get; }
+        = new(Brightness: 50, Contrast: 50, Gamma: 1.00, DigitalVibrance: 50, Hue: 0);
 
     /// <summary>The enabled profiles currently listening for their hotkeys.</summary>
     public IReadOnlyList<Profile> ArmedProfiles
@@ -81,6 +104,31 @@ public sealed class AppHost : IDisposable
     {
         LoadIntoEngine(profile);
         Engine.Toggle();
+    }
+
+    /// <summary>Applies a preset to one monitor (used for live preview as sliders move).</summary>
+    public void ApplyToMonitor(string monitorName, DisplayPreset preset)
+    {
+        if (IsNvidiaAvailable && OperatingSystem.IsWindows())
+            DisplayController.ApplyToMonitor(monitorName, preset);
+    }
+
+    /// <summary>Applies each saved preset to its monitor; called when the toggle goes ON.</summary>
+    public void ApplyAllDisplayPresets()
+    {
+        if (!IsNvidiaAvailable || !OperatingSystem.IsWindows())
+            return;
+        foreach ((string name, DisplayPreset preset) in Settings.DisplayPresets)
+            DisplayController.ApplyToMonitor(name, preset);
+    }
+
+    /// <summary>Restores defaults on every monitor that has a saved preset (toggle OFF).</summary>
+    public void RestoreAllDisplayDefaults()
+    {
+        if (!IsNvidiaAvailable || !OperatingSystem.IsWindows())
+            return;
+        foreach (string name in Settings.DisplayPresets.Keys)
+            DisplayController.ApplyToMonitor(name, DefaultDisplayPreset);
     }
 
     /// <summary>Persists new app-wide settings and notifies listeners (e.g. the overlay).</summary>
@@ -236,5 +284,8 @@ public sealed class AppHost : IDisposable
         _input.KeyReleased -= OnKeyReleased;
         Engine.Stop();
         _input.Dispose();
+
+        if (IsNvidiaAvailable && OperatingSystem.IsWindows())
+            DisplayController.Shutdown();
     }
 }

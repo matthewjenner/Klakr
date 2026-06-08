@@ -114,6 +114,11 @@ git commit -am "Release vX.Y.Z" && git push
 
 ### Dev workflow
 
+**When to bump**: bump when a feature or behavior change is complete and ready to ship,
+ideally in the same commit as the change. Don't bump for docs, comments, memory updates,
+or refactors with no user-visible effect - those should ride a future bump or sit on main
+unreleased until the next real change.
+
 The version flow is decoupled from your local build. You do **not** need to `dotnet build`
 or `dotnet test` before pushing for the release pipeline to work - CI does that fresh from
 your pushed source. Local builds are just for your own sanity.

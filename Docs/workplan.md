@@ -11,13 +11,16 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   awaiting full manual testing.
 - **Last updated:** 2026-06-08
 - **Build status:** `dotnet build` green (0 warnings); `dotnet test` green (40/40 passing).
-- **Latest:** Release pipeline + auto-update. GitHub Actions release workflow on push to
-  main reads `Directory.Build.props`, skips if a tag for that version already exists,
-  otherwise builds + tests + Velopack-packs win-x64 self-contained and publishes a GitHub
-  Release. `Scripts/bump-version.sh [Major|Minor|Patch]` bumps locally (default Patch). The
-  app checks GitHub Releases on startup + hourly via `UpdateService`; an update banner sits
-  at the top of the config window with Install / Skip / Later. NVIDIA Display tab (previous
-  shipped feature) unchanged.
+- **Latest:** Release pipeline + auto-update shipped and **confirmed working end-to-end**.
+  GitHub Actions release workflow on push to main reads `Directory.Build.props`, skips if
+  a tag for that version already exists, otherwise builds + tests + Velopack-packs win-x64
+  self-contained and publishes a GitHub Release. `Scripts/bump-version.sh [Major|Minor|Patch]`
+  bumps locally (default Patch). The app checks GitHub Releases on startup (5 s delay) and
+  hourly via `UpdateService`; an update banner sits at the top of the config window with
+  Install / Skip / Later. Running version is shown in the config window title bar
+  (`Klakr v1.0.1 - Config`) and as a disabled top item in the tray menu. **Repo must be
+  public** for the update check to work (verified 2026-06-08 - first attempt failed
+  silently because `GithubSource` with `accessToken: null` returns 404 on a private repo).
 - **Notes:** .NET 10 SDK 10.0.203. Solution has 3 projects under `Src/` and `Tests/`.
   Klakr.Core is pure (no UI/platform deps) and fully unit-tested. Full app: config window
   (profile list w/ enabled state + nested sequence editor + sequence type + default/per-key
@@ -134,6 +137,22 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   persists in `AppSettings` so "Skip this version" sticks until a newer one appears. Banner
   lives only on the config window (no tray badge, no overlay change). No code signing, no
   release notes, no channels - keep the surface small.
+- **Repo must be public** for the update check to function. `GithubSource` is constructed
+  with `accessToken: null`, so unauthenticated GitHub API calls are the only path. A
+  private repo returns 404 and the catch-all in `UpdateService.CheckOnceAsync` swallows it
+  silently. The cost of "make the repo public" is zero (no secrets in the code); the cost
+  of "bundle a PAT in the binary" is poor (anyone who decompiles reads it). Decided: public.
+- **No manual "Check for updates now" button.** Startup + hourly checks cover the user's
+  workflow (they restart the app to force a re-check anyway). A manual button would be
+  worth it only if a future regression starts silently swallowing errors - revisit then.
+- **Running version is shown in two places**: config window title bar and a disabled
+  top-of-menu item on the tray icon, both pulling from `Services/AppVersion.cs` which
+  reads `Assembly.GetEntryAssembly().GetName().Version.ToString(3)`. Clean 3-part SemVer
+  thanks to `IncludeSourceRevisionInInformationalVersion=false`.
+- **Bump-version rule**: run `Scripts/bump-version.sh` whenever a feature or behavior
+  change is complete and will ship - ideally same commit as the change. Skip for
+  docs/memory/comment edits and refactors with no user-visible effect. A docs-only push
+  without a bump correctly produces no release (CI's release-exists check no-ops).
 
 ## Known edges (revisit in Phase 4 config validation)
 

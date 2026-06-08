@@ -77,6 +77,7 @@ dotnet test
 - **Add an app-wide setting**: add a property to `AppSettings` (Klakr.App), surface it in `ConfigWindowViewModel`, push changes via `AppHost.UpdateSettings`; it persists to `settings.json` via `SettingsStore`.
 - **Change hotkey behavior**: matching lives in `Hotkey.Matches` (key-only - modifier-agnostic by design); capture lives in `AppHost.CaptureNextHotkeyAsync`.
 - **Cut a release**: run `./Scripts/bump-version.sh` (default Patch; pass `Minor` or `Major` to bump those), commit, push to `main`. `.github/workflows/release.yml` reads `Directory.Build.props`, skips if a release for that version already exists, otherwise tests + Velopack-packs win-x64 self-contained + uploads to GitHub Releases as `vX.Y.Z`. Plain pushes without a bump are a no-op. CI never commits.
+- **When to bump the version**: bump whenever a feature or behavior change is complete and will ship - ideally in the same commit as the change. Do NOT bump for docs/memory/comment changes, refactors with no user-visible effect, or in-progress WIP. A docs-only commit pushed without a bump correctly produces no release. The repo MUST be public for the in-app update check to work (unauthenticated GithubSource).
 - **Tweak the update check**: `Services/UpdateService.cs` polls GitHub via Velopack (5 s startup delay, hourly cadence, silent on network failures). `AppSettings.SkippedUpdateVersion` persists the "Skip this version" choice. Banner state lives on `ConfigWindowViewModel.AvailableUpdateVersion`; the banner row is the topmost dock in `ConfigWindow.axaml`.
 
 ## What NOT to do

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/Src/">
+    <Project Path="Src/Klakr.App/Klakr.App.csproj" />
+    <Project Path="Src/Klakr.Core/Klakr.Core.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/Klakr.Core.Tests/Klakr.Core.Tests.csproj" />
+  </Folder>
+</Solution>

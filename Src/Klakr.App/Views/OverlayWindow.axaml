@@ -1,0 +1,20 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Klakr.App.ViewModels"
+        x:Class="Klakr.App.Views.OverlayWindow"
+        x:DataType="vm:OverlayWindowViewModel"
+        Width="24" Height="24"
+        WindowDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        CanResize="False"
+        Focusable="False"
+        WindowStartupLocation="Manual">
+    <!-- The dot. Stroke keeps it visible on both light and dark backgrounds. -->
+    <Ellipse Width="16" Height="16"
+             HorizontalAlignment="Center" VerticalAlignment="Center"
+             Fill="{Binding DotBrush}"
+             Stroke="#80000000" StrokeThickness="1" />
+</Window>

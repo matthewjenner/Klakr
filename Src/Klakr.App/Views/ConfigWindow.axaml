@@ -1,0 +1,296 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Klakr.App.ViewModels"
+        xmlns:steps="using:Klakr.App.ViewModels.Steps"
+        xmlns:conv="using:Klakr.App.Converters"
+        x:Class="Klakr.App.Views.ConfigWindow"
+        x:CompileBindings="False"
+        Icon="/Assets/icon.ico"
+        Title="Klakr - Config" Width="940" Height="640"
+        MinWidth="720" MinHeight="480">
+
+    <Window.Resources>
+        <!-- Numeric fields use this so an empty/invalid entry is ignored, not an error. -->
+        <conv:IntTextConverter x:Key="IntText" />
+        <conv:KeyDisplayConverter x:Key="KeyDisplay" />
+        <!-- Key pickers show friendly names: the digit row as 0-9, not D0-D9. -->
+        <DataTemplate x:Key="KeyItemTemplate">
+            <TextBlock Text="{Binding Converter={StaticResource KeyDisplay}}" />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Border.step">
+            <Setter Property="Background" Value="#22808080" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="Margin" Value="0,3" />
+        </Style>
+        <Style Selector="Border.branch">
+            <Setter Property="BorderBrush" Value="#60808080" />
+            <Setter Property="BorderThickness" Value="2,0,0,0" />
+            <Setter Property="Margin" Value="10,2,0,2" />
+            <Setter Property="Padding" Value="8,2,0,2" />
+        </Style>
+        <Style Selector="Button.rowbtn">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="MinWidth" Value="34" />
+        </Style>
+        <Style Selector="TextBlock.kind">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.num">
+            <Setter Property="Width" Value="64" />
+        </Style>
+    </Window.Styles>
+
+    <Window.DataTemplates>
+
+        <!-- An editable list of steps: the rows, then the add-step bar. Used for the root
+             sequence, loop bodies and conditional branches; recursion happens here. -->
+        <DataTemplate DataType="steps:StepListViewModel">
+            <StackPanel Spacing="4">
+                <ItemsControl ItemsSource="{Binding Items}" />
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="Add step:" VerticalAlignment="Center" Foreground="Gray" />
+                    <Button Content="Key Tap" Command="{Binding AddStepCommand}" CommandParameter="keyTap" />
+                    <Button Content="Delay" Command="{Binding AddStepCommand}" CommandParameter="delay" />
+                    <Button Content="Loop" Command="{Binding AddStepCommand}" CommandParameter="loop" />
+                    <Button Content="If" Command="{Binding AddStepCommand}" CommandParameter="conditionalBranch" />
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- Key Tap -->
+        <DataTemplate DataType="steps:KeyTapStepViewModel">
+            <Border Classes="step">
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="kind" Text="{Binding Kind}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3">
+                            <Button Classes="rowbtn" Content="Up" Command="{Binding MoveUpCommand}" />
+                            <Button Classes="rowbtn" Content="Down" Command="{Binding MoveDownCommand}" />
+                            <Button Classes="rowbtn" Content="Remove" Command="{Binding RemoveCommand}" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Key:" VerticalAlignment="Center" />
+                        <ComboBox Width="130" ItemsSource="{Binding AllKeys}" SelectedItem="{Binding Key}"
+                                  ItemTemplate="{StaticResource KeyItemTemplate}" />
+                        <TextBlock Text="Hold ms:" VerticalAlignment="Center" Margin="8,0,0,0" />
+                        <TextBox Classes="num" Text="{Binding HoldMinMs, Converter={StaticResource IntText}}" />
+                        <TextBlock Text="to" VerticalAlignment="Center" />
+                        <TextBox Classes="num" Text="{Binding HoldMaxMs, Converter={StaticResource IntText}}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <CheckBox Content="Custom delay after" IsChecked="{Binding UseCustomDelay}" />
+                        <TextBox Classes="num" Text="{Binding DelayMinMs, Converter={StaticResource IntText}}"
+                                 IsEnabled="{Binding UseCustomDelay}" />
+                        <TextBlock Text="to" VerticalAlignment="Center" />
+                        <TextBox Classes="num" Text="{Binding DelayMaxMs, Converter={StaticResource IntText}}"
+                                 IsEnabled="{Binding UseCustomDelay}" />
+                        <TextBlock Text="ms - otherwise the sequence default" Foreground="Gray"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Delay -->
+        <DataTemplate DataType="steps:DelayStepViewModel">
+            <Border Classes="step">
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="kind" Text="{Binding Kind}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3">
+                            <Button Classes="rowbtn" Content="Up" Command="{Binding MoveUpCommand}" />
+                            <Button Classes="rowbtn" Content="Down" Command="{Binding MoveDownCommand}" />
+                            <Button Classes="rowbtn" Content="Remove" Command="{Binding RemoveCommand}" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Wait ms:" VerticalAlignment="Center" />
+                        <TextBox Classes="num" Text="{Binding MinMs, Converter={StaticResource IntText}}" />
+                        <TextBlock Text="to" VerticalAlignment="Center" />
+                        <TextBox Classes="num" Text="{Binding MaxMs, Converter={StaticResource IntText}}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Loop -->
+        <DataTemplate DataType="steps:LoopStepViewModel">
+            <Border Classes="step">
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="kind" Text="{Binding Kind}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3">
+                            <Button Classes="rowbtn" Content="Up" Command="{Binding MoveUpCommand}" />
+                            <Button Classes="rowbtn" Content="Down" Command="{Binding MoveDownCommand}" />
+                            <Button Classes="rowbtn" Content="Remove" Command="{Binding RemoveCommand}" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <CheckBox Content="Loop until toggled off" IsChecked="{Binding LoopForever}" />
+                        <TextBlock Text="Times:" VerticalAlignment="Center" />
+                        <TextBox Classes="num" Text="{Binding Iterations, Converter={StaticResource IntText}}"
+                                 IsEnabled="{Binding !LoopForever}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Order:" VerticalAlignment="Center" />
+                        <ComboBox Width="150" ItemsSource="{Binding AllSequenceTypes}"
+                                  SelectedItem="{Binding Ordering}" />
+                        <TextBlock Text="Burst x" VerticalAlignment="Center" />
+                        <TextBox Classes="num" Text="{Binding BurstCount, Converter={StaticResource IntText}}"
+                                 IsEnabled="{Binding IsBurst}" />
+                    </StackPanel>
+                    <Border Classes="branch">
+                        <ContentControl Content="{Binding Body}" />
+                    </Border>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Conditional branch -->
+        <DataTemplate DataType="steps:ConditionalBranchStepViewModel">
+            <Border Classes="step">
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="kind" Text="{Binding Kind}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3">
+                            <Button Classes="rowbtn" Content="Up" Command="{Binding MoveUpCommand}" />
+                            <Button Classes="rowbtn" Content="Down" Command="{Binding MoveDownCommand}" />
+                            <Button Classes="rowbtn" Content="Remove" Command="{Binding RemoveCommand}" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="If key held:" VerticalAlignment="Center" />
+                        <ComboBox Width="130" ItemsSource="{Binding AllKeys}" SelectedItem="{Binding WatchKey}"
+                                  ItemTemplate="{StaticResource KeyItemTemplate}" />
+                    </StackPanel>
+                    <TextBlock Text="Then:" Foreground="Gray" />
+                    <Border Classes="branch">
+                        <ContentControl Content="{Binding ThenBranch}" />
+                    </Border>
+                    <TextBlock Text="Else:" Foreground="Gray" />
+                    <Border Classes="branch">
+                        <ContentControl Content="{Binding ElseBranch}" />
+                    </Border>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+    </Window.DataTemplates>
+
+    <DockPanel>
+
+      <!-- Platform warning banner (Wayland / macOS) -->
+      <Border DockPanel.Dock="Top" Background="#3D2A00" Padding="12,8"
+              IsVisible="{Binding HasPlatformNotice}">
+          <TextBlock Text="{Binding PlatformNotice}" Foreground="Orange" TextWrapping="Wrap" />
+      </Border>
+
+      <Grid ColumnDefinitions="240,*" Margin="10">
+
+        <!-- Left: profile list -->
+        <Border Grid.Column="0" Background="#18808080" CornerRadius="4" Padding="8" Margin="0,0,8,0">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Profiles" FontSize="16" FontWeight="Bold"
+                           Margin="0,0,0,8" />
+                <!-- Overlay placement - app-wide, applies and saves live -->
+                <Border DockPanel.Dock="Bottom" Background="#20000000" CornerRadius="4"
+                        Padding="8" Margin="0,8,0,0">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Overlay" FontWeight="Bold" />
+                        <CheckBox Content="Show overlay" IsChecked="{Binding OverlayVisible}" />
+                        <StackPanel Spacing="6" IsEnabled="{Binding OverlayVisible}">
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding AllOverlayAnchors}"
+                                      SelectedItem="{Binding OverlayAnchor}" />
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="X" VerticalAlignment="Center" />
+                                <TextBox Classes="num" Text="{Binding OverlayOffsetX, Converter={StaticResource IntText}}" />
+                                <TextBlock Text="Y" VerticalAlignment="Center" />
+                                <TextBox Classes="num" Text="{Binding OverlayOffsetY, Converter={StaticResource IntText}}" />
+                            </StackPanel>
+                            <TextBlock Text="Nudge from the anchor, in px - X+ right, Y+ down."
+                                       Foreground="Gray" FontSize="11" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+                    <Button Content="New" Command="{Binding NewProfileCommand}" />
+                    <Button Content="Duplicate" Command="{Binding DuplicateProfileCommand}" />
+                    <Button Content="Delete" Command="{Binding DeleteProfileCommand}" />
+                </StackPanel>
+                <ListBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="8"
+                                        ToolTip.Tip="Green = enabled (listens for its hotkey); grey = disabled">
+                                <Ellipse Width="10" Height="10" VerticalAlignment="Center"
+                                         Fill="{Binding StatusBrush}" />
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Right: editor -->
+        <DockPanel Grid.Column="1">
+
+            <!-- Profile metadata -->
+            <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Profile name:" VerticalAlignment="Center" Width="90" />
+                    <TextBox Width="220" Text="{Binding ProfileName}" />
+                    <CheckBox Content="Enabled (listens for its hotkey)" VerticalAlignment="Center"
+                              IsChecked="{Binding ProfileEnabled}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Hotkey:" VerticalAlignment="Center" Width="90" />
+                    <TextBlock Text="{Binding HotkeyText}" VerticalAlignment="Center" MinWidth="160"
+                               FontWeight="Bold" />
+                    <Button Content="Set hotkey" Command="{Binding CaptureHotkeyCommand}" />
+                    <TextBlock Text="{Binding HotkeyWarning}" Foreground="Orange"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Sequence type:" VerticalAlignment="Center" Width="90" />
+                    <ComboBox Width="150" ItemsSource="{Binding AllSequenceTypes}"
+                              SelectedItem="{Binding Ordering}" />
+                    <TextBlock Text="Burst x" VerticalAlignment="Center" />
+                    <TextBox Classes="num" Text="{Binding BurstCount, Converter={StaticResource IntText}}"
+                             IsEnabled="{Binding IsBurst}" />
+                    <TextBlock Text="Default delay ms:" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <TextBox Classes="num" Text="{Binding DefaultDelayMinMs, Converter={StaticResource IntText}}" />
+                    <TextBlock Text="to" VerticalAlignment="Center" />
+                    <TextBox Classes="num" Text="{Binding DefaultDelayMaxMs, Converter={StaticResource IntText}}" />
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Action bar -->
+            <Border DockPanel.Dock="Bottom" Background="#18808080" CornerRadius="4"
+                    Padding="8" Margin="0,8,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button Content="Save profile" Command="{Binding SaveCommand}" />
+                    <Button Content="Test (start / stop)" Command="{Binding ToggleEngineCommand}" />
+                    <TextBlock Text="Engine:" VerticalAlignment="Center" Foreground="Gray" />
+                    <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" FontWeight="Bold" />
+                </StackPanel>
+            </Border>
+
+            <!-- Sequence editor -->
+            <HeaderedContentControl Header="Sequence (runs on a loop while toggled on)">
+                <ScrollViewer Margin="0,6,0,0">
+                    <ContentControl Content="{Binding Sequence}" />
+                </ScrollViewer>
+            </HeaderedContentControl>
+
+        </DockPanel>
+      </Grid>
+    </DockPanel>
+</Window>

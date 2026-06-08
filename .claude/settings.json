@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(dotnet new *)",
+      "Bash(dotnet sln *)",
+      "Bash(dotnet add *)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Read(//c/Users/matt/.nuget/packages/sharphook/**)",
+      "Read(//c/Users/matt/.nuget/packages/sharphook/7.1.1/lib/**)",
+      "Read(//c/Users/matt/.claude/projects/e--code-Klakr/memory/**)",
+      "Bash(cat MEMORY.md)",
+      "Bash(bash -n Scripts/run.sh)",
+      "Bash(chmod +x Scripts/run.sh)",
+      "Bash(find ~/.nuget/packages/avalonia/12.0.3 -name \"*.xml\" 2>/dev/null | head -3 && echo \"---\" && grep -rhoE 'name=\"\\(T:Avalonia\\\\.Controls\\\\.WindowDecorations|F:Avalonia\\\\.Controls\\\\.WindowDecorations\\\\.[^\"]*|P:Avalonia\\\\.Controls\\\\.Window\\\\.WindowDecorations\\)\"' ~/.nuget/packages/avalonia/12.0.3/ 2>/dev/null | sort -u)",
+      "Read(//c/Users/matt/.nuget/packages/avalonia/12.0.3/**)"
+    ]
+  }
+}

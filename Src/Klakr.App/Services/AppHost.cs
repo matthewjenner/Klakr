@@ -27,6 +27,10 @@ public sealed class AppHost : IDisposable
     private List<Profile> _armed = [];
     private Profile? _running;
 
+    // Keys the Send-Key tool has pressed but not released. Cleared on Dispose so a held
+    // key doesn't outlive the app - otherwise Windows would keep "seeing" it pressed.
+    private readonly HashSet<Key> _heldByTestTool = [];
+
     // Written on the UI thread (CaptureNextHotkeyAsync), read on the hook thread (OnKeyPressed).
     private volatile TaskCompletionSource<Hotkey>? _hotkeyCapture;
 
@@ -111,6 +115,31 @@ public sealed class AppHost : IDisposable
     {
         LoadIntoEngine(profile);
         Engine.Toggle();
+    }
+
+    /// <summary>Sends a press event for <paramref name="key"/>. Used by the Send-Key tool.</summary>
+    public void PressKey(Key key) => _input.PressKey(key);
+
+    /// <summary>Sends a release event for <paramref name="key"/>. Used by the Send-Key tool.</summary>
+    public void ReleaseKey(Key key) => _input.ReleaseKey(key);
+
+    /// <summary>
+    /// Presses <paramref name="key"/> and remembers it as held-by-test-tool, so <see cref="Dispose"/>
+    /// can release it on shutdown and Windows isn't left believing the key is still down.
+    /// </summary>
+    public void HoldKey(Key key)
+    {
+        _input.PressKey(key);
+        lock (_gate)
+            _heldByTestTool.Add(key);
+    }
+
+    /// <summary>Releases a key previously sent via <see cref="HoldKey"/>.</summary>
+    public void ReleaseHeldKey(Key key)
+    {
+        lock (_gate)
+            _heldByTestTool.Remove(key);
+        _input.ReleaseKey(key);
     }
 
     /// <summary>Applies a preset to one monitor (used for live preview as sliders move).</summary>
@@ -290,6 +319,17 @@ public sealed class AppHost : IDisposable
         _input.KeyPressed -= OnKeyPressed;
         _input.KeyReleased -= OnKeyReleased;
         Engine.Stop();
+
+        // Release any keys the Send-Key tool was holding, BEFORE the hook tears down.
+        Key[] toRelease;
+        lock (_gate)
+        {
+            toRelease = [.. _heldByTestTool];
+            _heldByTestTool.Clear();
+        }
+        foreach (Key key in toRelease)
+            _input.ReleaseKey(key);
+
         _input.Dispose();
         _updates.Dispose();
 

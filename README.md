@@ -28,6 +28,10 @@ ergonomics/automation tool, used at your own risk in any given game. See *Fair u
   Skip-this-version and Later buttons. Updates are delivered via Velopack and applied
   in-place. Dev builds (`dotnet run`) check too, but the Install button is disabled - the
   installer artifact needs to have been bootstrapped from a release first.
+- **Send Key tab** - synthesize a key your keyboard doesn't have (F13-F24, for example)
+  so you can bind it in other apps like Discord PTT. Pick the key, set a countdown (so
+  you can Alt-Tab to the target window), then Tap (one press-release) or Hold (until
+  you click Release). Held keys are auto-released if you quit Klakr.
 
 ## Requirements
 

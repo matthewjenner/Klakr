@@ -100,6 +100,38 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsUpdateBannerVisible))]
     private string? _availableUpdateVersion;
 
+    // --- Send Key tab state ---
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HoldButtonLabel))]
+    [NotifyPropertyChangedFor(nameof(SendKeyDescription))]
+    private Key _selectedSendKey = Key.F24;
+
+    /// <summary>Pre-send delay in seconds. 0 means send immediately.</summary>
+    [ObservableProperty]
+    private int _countdownSeconds = 3;
+
+    [ObservableProperty]
+    private int _countdownRemaining;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanEditSendInputs))]
+    private bool _isCountdownActive;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HoldButtonLabel))]
+    [NotifyPropertyChangedFor(nameof(CanEditSendInputs))]
+    private bool _isKeyHeld;
+
+    [ObservableProperty]
+    private string _sendStatus = "Ready.";
+
+    // The key currently held by the test tool, if any. Set on hold-start, cleared on release.
+    // Tracked separately from SelectedSendKey so the user can change the dropdown while a key
+    // is held without confusing which key Release will let go.
+    private Key? _heldKey;
+    private CancellationTokenSource? _sendCts;
+
     public ConfigWindowViewModel(AppHost host)
     {
         _host = host;
@@ -158,6 +190,20 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
     /// can still appear for UI testing, but Install stays disabled.
     /// </summary>
     public bool CanInstallUpdate => _host.Updates.CanInstall;
+
+    /// <summary>Every <see cref="Key"/>, for the Send-Key dropdown.</summary>
+    public IReadOnlyList<Key> AllSendKeys => KeyChoices.All;
+
+    /// <summary>Hold button text: "Hold key" when idle, "Release X" when a key is currently held.</summary>
+    public string HoldButtonLabel => IsKeyHeld && _heldKey is { } k
+        ? $"Release {KeyDisplay.Format(k)}"
+        : "Hold key";
+
+    /// <summary>Short label below the dropdown - mostly to make F-key choices obvious.</summary>
+    public string SendKeyDescription => $"Will send {KeyDisplay.Format(SelectedSendKey)}.";
+
+    /// <summary>Inputs (key picker, countdown) are locked while a send is in flight or a key is held.</summary>
+    public bool CanEditSendInputs => !IsCountdownActive && !IsKeyHeld;
 
     /// <summary>The root sequence being edited (the editor treats the root as an infinite loop).</summary>
     public StepListViewModel Sequence { get; } = new("Sequence");
@@ -502,6 +548,103 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
         if (_suppressDisplayApply || string.IsNullOrEmpty(SelectedMonitor))
             return;
         _host.ApplyToMonitor(SelectedMonitor, CurrentSliderPreset());
+    }
+
+    // --- Send Key tab ---
+
+    /// <summary>Counts down (if configured) then taps the selected key once.</summary>
+    [RelayCommand]
+    private async Task TapSendKey()
+    {
+        CancellationToken ct = StartSend();
+        try
+        {
+            await RunCountdownAsync(ct);
+            Key key = SelectedSendKey;
+            string label = KeyDisplay.Format(key);
+            SendStatus = $"Sending {label}...";
+            _host.PressKey(key);
+            // A small hold so the receiving app's key handler sees a proper down+up pair.
+            await Task.Delay(30, ct);
+            _host.ReleaseKey(key);
+            SendStatus = $"Sent {label}.";
+        }
+        catch (OperationCanceledException)
+        {
+            SendStatus = "Cancelled.";
+        }
+        finally
+        {
+            EndSend();
+        }
+    }
+
+    /// <summary>
+    /// Holds the selected key down after a countdown, or releases it immediately if already held.
+    /// </summary>
+    [RelayCommand]
+    private async Task ToggleHoldSendKey()
+    {
+        if (IsKeyHeld && _heldKey is { } current)
+        {
+            _host.ReleaseHeldKey(current);
+            _heldKey = null;
+            IsKeyHeld = false;
+            SendStatus = $"Released {KeyDisplay.Format(current)}.";
+            return;
+        }
+
+        CancellationToken ct = StartSend();
+        try
+        {
+            await RunCountdownAsync(ct);
+            Key key = SelectedSendKey;
+            string label = KeyDisplay.Format(key);
+            _host.HoldKey(key);
+            _heldKey = key;
+            IsKeyHeld = true;
+            SendStatus = $"Holding {label}. Click Release to stop.";
+        }
+        catch (OperationCanceledException)
+        {
+            SendStatus = "Cancelled.";
+        }
+        finally
+        {
+            EndSend();
+        }
+    }
+
+    /// <summary>Cancels an in-progress countdown (no effect once the key has actually been sent).</summary>
+    [RelayCommand]
+    private void CancelSend() => _sendCts?.Cancel();
+
+    private CancellationToken StartSend()
+    {
+        _sendCts?.Cancel();
+        _sendCts = new CancellationTokenSource();
+        IsCountdownActive = true;
+        return _sendCts.Token;
+    }
+
+    private void EndSend()
+    {
+        IsCountdownActive = false;
+        CountdownRemaining = 0;
+        _sendCts?.Dispose();
+        _sendCts = null;
+    }
+
+    private async Task RunCountdownAsync(CancellationToken ct)
+    {
+        int seconds = Math.Max(0, CountdownSeconds);
+        for (int i = seconds; i > 0; i--)
+        {
+            CountdownRemaining = i;
+            SendStatus = $"Switch to the target app - sending in {i}...";
+            await Task.Delay(1000, ct);
+        }
+        CountdownRemaining = 0;
     }
 
     /// <summary>

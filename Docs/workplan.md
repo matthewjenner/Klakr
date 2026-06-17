@@ -11,7 +11,13 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   awaiting full manual testing.
 - **Last updated:** 2026-06-08
 - **Build status:** `dotnet build` green (0 warnings); `dotnet test` green (40/40 passing).
-- **Latest:** Release pipeline + auto-update shipped and **confirmed working end-to-end**.
+- **Latest:** **Send Key tab** shipped (v1.0.2). New config-window tab with a key dropdown,
+  a configurable countdown (default 3 s), Tap (one press-release), and a Hold/Release
+  toggle. Built for sending keys the physical keyboard lacks - e.g. binding F24 as a
+  Discord PTT key. Any held key is auto-released on app quit via `AppHost.Dispose`. The
+  underlying `AppHost.PressKey/ReleaseKey/HoldKey/ReleaseHeldKey` methods are reused-able
+  by future features.
+- **Previously:** Release pipeline + auto-update shipped and **confirmed working end-to-end**.
   GitHub Actions release workflow on push to main reads `Directory.Build.props`, skips if
   a tag for that version already exists, otherwise builds + tests + Velopack-packs win-x64
   self-contained and publishes a GitHub Release. `Scripts/bump-version.sh [Major|Minor|Patch]`
@@ -153,6 +159,12 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   change is complete and will ship - ideally same commit as the change. Skip for
   docs/memory/comment edits and refactors with no user-visible effect. A docs-only push
   without a bump correctly produces no release (CI's release-exists check no-ops).
+- **Send-Key tool: countdown over focus-grab.** The synthesis APIs would deliver to
+  whatever has focus when called. Rather than try to grab focus on the target window
+  (fragile, app-specific), the UI shows a countdown so the user can Alt-Tab to the
+  receiving app first. Default 3 s; 0 = immediate. Cancel button visible during countdown.
+  Held keys are tracked on `AppHost` (`_heldByTestTool`) and released in `Dispose` so a
+  quit-while-held doesn't leave Windows believing the key is still down.
 
 ## Known edges (revisit in Phase 4 config validation)
 

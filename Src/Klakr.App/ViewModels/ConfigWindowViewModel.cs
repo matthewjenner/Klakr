@@ -138,7 +138,12 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
         PlatformNotice = PlatformChecks.StartupNotice();
 
         AvailableUpdateVersion = host.Updates.AvailableVersion;
-        host.Updates.UpdateAvailableChanged += v => AvailableUpdateVersion = v;
+        RefreshUpdateStatus();
+        host.Updates.UpdateAvailableChanged += v =>
+        {
+            AvailableUpdateVersion = v;
+            RefreshUpdateStatus();
+        };
 
         _suppressSettingsPush = true;
         _suppressDisplayApply = true;
@@ -193,6 +198,33 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
 
     /// <summary>Every <see cref="Key"/>, for the Send-Key dropdown.</summary>
     public IReadOnlyList<Key> AllSendKeys => KeyChoices.All;
+
+    // --- Settings tab (About + Diagnostics) ---
+
+    public string DiagnosticsKlakrVersion => $"Klakr v{Diagnostics.KlakrVersion}";
+    public string DiagnosticsDotNet => $".NET {Diagnostics.DotNetVersion}";
+    public string DiagnosticsOs => Diagnostics.OsDescription;
+    public string DiagnosticsSharpHook => $"SharpHook {Diagnostics.SharpHookVersion}";
+    public string DiagnosticsRepoUrl => Diagnostics.RepoUrl;
+    public string DiagnosticsProfilesFolder => Diagnostics.ProfilesFolder;
+    public string DiagnosticsSettingsFile => Diagnostics.SettingsFile;
+    public string DiagnosticsNvidia => _host.IsNvidiaAvailable
+        ? "NVAPI: Available"
+        : "NVAPI: Not available";
+
+    /// <summary>Live-refreshed by <see cref="RefreshUpdateStatus"/>; bound as a status line.</summary>
+    [ObservableProperty]
+    private string _diagnosticsUpdateStatus = "Update check: not yet checked.";
+
+    /// <summary>Latest snapshot text, refreshed on demand and copied to clipboard by the View.</summary>
+    public string CurrentDiagnosticsText => Diagnostics.Snapshot(_host);
+
+    /// <summary>Transient banner text under the Copy Diagnostics button (empty = hidden).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCopyDiagnosticsStatus))]
+    private string _copyDiagnosticsStatus = "";
+
+    public bool HasCopyDiagnosticsStatus => !string.IsNullOrEmpty(CopyDiagnosticsStatus);
 
     /// <summary>Hold button text: "Hold key" when idle, "Release X" when a key is currently held.</summary>
     public string HoldButtonLabel => IsKeyHeld && _heldKey is { } k
@@ -618,6 +650,40 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
     /// <summary>Cancels an in-progress countdown (no effect once the key has actually been sent).</summary>
     [RelayCommand]
     private void CancelSend() => _sendCts?.Cancel();
+
+    // --- Settings tab commands ---
+
+    [RelayCommand]
+    private void OpenProfilesFolder() => Diagnostics.OpenFolder(Diagnostics.ProfilesFolder);
+
+    [RelayCommand]
+    private void OpenSettingsLocation() => Diagnostics.RevealFile(Diagnostics.SettingsFile);
+
+    [RelayCommand]
+    private void OpenRepoUrl()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Diagnostics.RepoUrl)
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch
+        {
+            // Missing default browser is not worth surfacing - the URL is right there in the UI.
+        }
+    }
+
+    /// <summary>Re-reads the update service's last-check snapshot into the diagnostics line.</summary>
+    public void RefreshUpdateStatus()
+    {
+        (DateTime? at, string status) = _host.Updates.Snapshot();
+        DiagnosticsUpdateStatus = at is null
+            ? $"Update check: {status}"
+            : $"Update check: {status} ({Diagnostics.FormatRelative(at.Value)})";
+        OnPropertyChanged(nameof(CurrentDiagnosticsText));
+    }
 
     private CancellationToken StartSend()
     {

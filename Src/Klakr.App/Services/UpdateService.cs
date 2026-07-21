@@ -25,6 +25,7 @@ public sealed class UpdateService : IDisposable
     private readonly UpdateManager? _manager;
     private readonly CancellationTokenSource _cts = new();
     private UpdateInfo? _pending;
+    private readonly Lock _statusGate = new();
 
     public UpdateService(AppHost host)
     {
@@ -52,6 +53,19 @@ public sealed class UpdateService : IDisposable
 
     /// <summary>True only when Velopack is in installed mode (i.e. not a <c>dotnet run</c>).</summary>
     public bool CanInstall => _manager?.IsInstalled ?? false;
+
+    /// <summary>Wall-clock time (UTC) of the last completed check attempt, or null if none yet.</summary>
+    public DateTime? LastCheckedUtc { get; private set; }
+
+    /// <summary>Short human status of the last check attempt (for the Settings tab diagnostics).</summary>
+    public string LastCheckStatus { get; private set; } = "Not yet checked.";
+
+    /// <summary>Returns a snapshot of the last-check info as (timestamp, status) - thread-safe.</summary>
+    public (DateTime? LastCheckedUtc, string Status) Snapshot()
+    {
+        lock (_statusGate)
+            return (LastCheckedUtc, LastCheckStatus);
+    }
 
     /// <summary>Downloads the pending update and restarts into the new version.</summary>
     public async Task InstallAndRestartAsync()
@@ -102,7 +116,10 @@ public sealed class UpdateService : IDisposable
     private async Task CheckOnceAsync()
     {
         if (_manager is null)
+        {
+            RecordStatus("Update manager unavailable.");
             return;
+        }
 
         try
         {
@@ -110,6 +127,7 @@ public sealed class UpdateService : IDisposable
             if (info is null)
             {
                 SetAvailable(null);
+                RecordStatus("Up to date.");
                 return;
             }
 
@@ -117,16 +135,29 @@ public sealed class UpdateService : IDisposable
             if (string.Equals(version, _host.Settings.SkippedUpdateVersion, StringComparison.Ordinal))
             {
                 SetAvailable(null);
+                RecordStatus($"Update v{version} available but skipped.");
                 return;
             }
 
             _pending = info;
             SetAvailable(version);
+            RecordStatus($"Update v{version} available.");
         }
-        catch
+        catch (Exception ex)
         {
             // Network down, no releases yet, dev mode without an installed app, etc.
-            // Stay quiet - the banner is opt-in nice-to-have, not a critical path.
+            // Stay quiet on the banner (opt-in nice-to-have), but record the reason for
+            // the diagnostics panel so the user has SOMETHING to look at.
+            RecordStatus($"Check failed: {ex.GetType().Name}.");
+        }
+    }
+
+    private void RecordStatus(string status)
+    {
+        lock (_statusGate)
+        {
+            LastCheckedUtc = DateTime.UtcNow;
+            LastCheckStatus = status;
         }
     }
 

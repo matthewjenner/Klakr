@@ -11,13 +11,16 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   awaiting full manual testing.
 - **Last updated:** 2026-06-08
 - **Build status:** `dotnet build` green (0 warnings); `dotnet test` green (40/40 passing).
-- **Latest:** **Send Key tab** shipped (v1.0.2). New config-window tab with a key dropdown,
-  a configurable countdown (default 3 s), Tap (one press-release), and a Hold/Release
-  toggle. Built for sending keys the physical keyboard lacks - e.g. binding F24 as a
-  Discord PTT key. Any held key is auto-released on app quit via `AppHost.Dispose`. The
-  underlying `AppHost.PressKey/ReleaseKey/HoldKey/ReleaseHeldKey` methods are reused-able
-  by future features.
-- **Previously:** Release pipeline + auto-update shipped and **confirmed working end-to-end**.
+- **Latest:** **Settings tab refactor** shipped (v1.0.3). New Settings tab holds Overlay
+  placement (moved out of the left panel, which is now just profiles), an About block
+  (Klakr / .NET / OS / SharpHook versions + clickable repo link), and a Diagnostics block
+  (NVAPI availability, update-check status with relative time, buttons to open the
+  profiles folder or reveal `settings.json` in Explorer, and a Copy-to-clipboard button
+  for the whole snapshot). Backed by new `Services/Diagnostics.cs`. `UpdateService` now
+  tracks `LastCheckedUtc` + `LastCheckStatus` so the update banner isn't the only signal.
+  Prep for the Start-with-Windows toggle and Keep Awake feature to land in the same tab.
+- **Previously:** Send Key tab shipped (v1.0.2). Release pipeline + auto-update shipped
+  and confirmed working end-to-end (v1.0.0-1.0.1).
   GitHub Actions release workflow on push to main reads `Directory.Build.props`, skips if
   a tag for that version already exists, otherwise builds + tests + Velopack-packs win-x64
   self-contained and publishes a GitHub Release. `Scripts/bump-version.sh [Major|Minor|Patch]`
@@ -165,6 +168,21 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   receiving app first. Default 3 s; 0 = immediate. Cancel button visible during countdown.
   Held keys are tracked on `AppHost` (`_heldByTestTool`) and released in `Dispose` so a
   quit-while-held doesn't leave Windows believing the key is still down.
+- **Settings tab is where app-wide stuff goes now** - not the left panel, not scattered.
+  Left panel is just profiles + New/Duplicate/Delete. Bottom action bar keeps ambient
+  status + Save/Test + per-domain quick toggles (Display preset, Keep Awake). Settings tab
+  will grow to hold Start-with-Windows and the Keep Awake config. Rule: any setting that
+  isn't profile-scoped goes in Settings.
+- **Clipboard access is code-behind, not a RelayCommand.** `IClipboard` in Avalonia 12 is
+  reached via `TopLevel.GetTopLevel(this).Clipboard`, which a ViewModel can't get to
+  without leaking the View. `ConfigWindow.axaml.cs` handles the Copy-diagnostics click
+  and writes to the VM's `CopyDiagnosticsStatus` for the "Copied." confirmation. Only
+  UI-specific concern that lives outside the VM; everything else stays MVVM.
+- **Update-check status is surfaced in Diagnostics.** `UpdateService.LastCheckedUtc` +
+  `LastCheckStatus` were previously private; now exposed via `Snapshot()`. Failures no
+  longer silent-only - they show as "Check failed: HttpRequestException." in the tab so
+  the user has something to look at if something breaks like the private-repo incident
+  from v1.0.1 debugging.
 
 ## Known edges (revisit in Phase 4 config validation)
 

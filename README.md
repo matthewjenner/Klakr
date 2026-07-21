@@ -32,6 +32,10 @@ ergonomics/automation tool, used at your own risk in any given game. See *Fair u
   so you can bind it in other apps like Discord PTT. Pick the key, set a countdown (so
   you can Alt-Tab to the target window), then Tap (one press-release) or Hold (until
   you click Release). Held keys are auto-released if you quit Klakr.
+- **Settings tab** - overlay placement, an About block (Klakr / .NET / OS / SharpHook
+  versions and a link to the source repo), and a Diagnostics block (NVAPI availability,
+  last update-check status, buttons to open the profiles folder or reveal settings.json,
+  and a Copy-to-clipboard button for the whole snapshot when filing an issue).
 
 ## Requirements
 

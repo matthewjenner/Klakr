@@ -216,27 +216,6 @@
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="Profiles" FontSize="16" FontWeight="Bold"
                            Margin="0,0,0,8" />
-                <!-- Overlay placement - app-wide, applies and saves live -->
-                <Border DockPanel.Dock="Bottom" Background="#20000000" CornerRadius="4"
-                        Padding="8" Margin="0,8,0,0">
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="Overlay" FontWeight="Bold" />
-                        <CheckBox Content="Show overlay" IsChecked="{Binding OverlayVisible}" />
-                        <StackPanel Spacing="6" IsEnabled="{Binding OverlayVisible}">
-                            <ComboBox HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding AllOverlayAnchors}"
-                                      SelectedItem="{Binding OverlayAnchor}" />
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="X" VerticalAlignment="Center" />
-                                <TextBox Classes="num" Text="{Binding OverlayOffsetX, Converter={StaticResource IntText}}" />
-                                <TextBlock Text="Y" VerticalAlignment="Center" />
-                                <TextBox Classes="num" Text="{Binding OverlayOffsetY, Converter={StaticResource IntText}}" />
-                            </StackPanel>
-                            <TextBlock Text="Nudge from the anchor, in px - X+ right, Y+ down."
-                                       Foreground="Gray" FontSize="11" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
                 <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
                     <Button Content="New" Command="{Binding NewProfileCommand}" />
                     <Button Content="Duplicate" Command="{Binding DuplicateProfileCommand}" />
@@ -360,6 +339,95 @@
 
                             <TextBlock Text="{Binding SendStatus}" Foreground="LightGray"
                                        FontWeight="Bold" />
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="Settings">
+                    <ScrollViewer>
+                        <StackPanel Spacing="18" Margin="8,12,8,8" MaxWidth="640" HorizontalAlignment="Left">
+
+                            <!-- Overlay: app-wide, saves live on any change. -->
+                            <HeaderedContentControl>
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="Overlay" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Spacing="8" Margin="0,6,0,0">
+                                    <CheckBox Content="Show overlay dot on screen"
+                                              IsChecked="{Binding OverlayVisible}" />
+                                    <StackPanel Spacing="8" IsEnabled="{Binding OverlayVisible}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="Anchor:" VerticalAlignment="Center" Width="90" />
+                                            <ComboBox Width="200" ItemsSource="{Binding AllOverlayAnchors}"
+                                                      SelectedItem="{Binding OverlayAnchor}" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="Nudge:" VerticalAlignment="Center" Width="90" />
+                                            <TextBlock Text="X" VerticalAlignment="Center" />
+                                            <TextBox Classes="num" Text="{Binding OverlayOffsetX, Converter={StaticResource IntText}}" />
+                                            <TextBlock Text="Y" VerticalAlignment="Center" />
+                                            <TextBox Classes="num" Text="{Binding OverlayOffsetY, Converter={StaticResource IntText}}" />
+                                            <TextBlock Text="px  (X+ right, Y+ down)"
+                                                       Foreground="Gray" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </HeaderedContentControl>
+
+                            <!-- About: static info about the running build. -->
+                            <HeaderedContentControl>
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="About" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Spacing="4" Margin="0,6,0,0">
+                                    <TextBlock Text="{Binding DiagnosticsKlakrVersion}" FontWeight="Bold" />
+                                    <TextBlock Text="{Binding DiagnosticsDotNet}" Foreground="Gray" />
+                                    <TextBlock Text="{Binding DiagnosticsOs}" Foreground="Gray" />
+                                    <TextBlock Text="{Binding DiagnosticsSharpHook}" Foreground="Gray" />
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,6,0,0">
+                                        <TextBlock Text="Source:" Foreground="Gray" VerticalAlignment="Center" />
+                                        <Button Content="{Binding DiagnosticsRepoUrl}"
+                                                Command="{Binding OpenRepoUrlCommand}"
+                                                Padding="4,0" Background="Transparent" BorderThickness="0"
+                                                Foreground="LightSkyBlue"
+                                                ToolTip.Tip="Open on GitHub" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </HeaderedContentControl>
+
+                            <!-- Diagnostics: live info + shortcuts for the profile / settings folders. -->
+                            <HeaderedContentControl>
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="Diagnostics" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Spacing="10" Margin="0,6,0,0">
+                                    <TextBlock Text="{Binding DiagnosticsNvidia}" />
+                                    <TextBlock Text="{Binding DiagnosticsUpdateStatus}" />
+
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="Open profiles folder"
+                                                Command="{Binding OpenProfilesFolderCommand}" />
+                                        <TextBlock Text="{Binding DiagnosticsProfilesFolder}"
+                                                   Foreground="Gray" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="380" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="Show settings file"
+                                                Command="{Binding OpenSettingsLocationCommand}" />
+                                        <TextBlock Text="{Binding DiagnosticsSettingsFile}"
+                                                   Foreground="Gray" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="380" />
+                                    </StackPanel>
+
+                                    <Button Content="Copy diagnostics to clipboard"
+                                            Click="OnCopyDiagnosticsClick"
+                                            HorizontalAlignment="Left" Margin="0,6,0,0" />
+                                    <TextBlock Text="{Binding CopyDiagnosticsStatus}"
+                                               IsVisible="{Binding HasCopyDiagnosticsStatus}"
+                                               Foreground="LightGreen" FontSize="11" />
+                                </StackPanel>
+                            </HeaderedContentControl>
 
                         </StackPanel>
                     </ScrollViewer>

@@ -92,6 +92,15 @@ public partial class DiagnosticsWindow : Window
     {
         if (_scroll is null)
             return;
+
+        // Only reconsider auto-scroll when the offset actually moved (user drag / wheel /
+        // programmatic ScrollToEnd). A pure extent change - new log entry appended without
+        // the offset moving - is exactly the case where "stick to bottom" needs to KEEP
+        // auto-scrolling; recomputing here would flip _autoScroll to false because the
+        // bottom just moved down without us and stall the follow-along.
+        if (e.OffsetDelta.Y == 0)
+            return;
+
         // "At bottom" if within ~4px of the extent bottom. Otherwise the user is browsing
         // history and we pause auto-scroll until they return.
         double distanceFromBottom = _scroll.Extent.Height - _scroll.Offset.Y - _scroll.Viewport.Height;

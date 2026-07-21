@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
+using Avalonia.Threading;
+using Klakr.App.Platform.Windows;
 using Klakr.App.Services;
 using Klakr.App.ViewModels;
 using Klakr.App.Views;
@@ -15,6 +17,7 @@ public partial class App : Application
     private ConfigWindow? _configWindow;
     private OverlayWindow? _overlay;
     private TrayIcon? _trayIcon;
+    private NativeMenuItem? _keepAwakeItem;
     private bool _quitting;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -28,12 +31,22 @@ public partial class App : Application
 
             _host = new AppHost();
 
+            // Refresh the HKCU Run entry so it always points at the currently-running exe.
+            // Velopack updates move the exe between subfolders; this catches that.
+            if (OperatingSystem.IsWindows() && _host.Settings.StartWithWindows)
+                AutoStart.Enable();
+
             _configWindow = new ConfigWindow
             {
                 DataContext = new ConfigWindowViewModel(_host),
             };
             _configWindow.Closing += OnConfigWindowClosing;
-            desktop.MainWindow = _configWindow;
+
+            // On boot Windows launches Klakr with --minimized. We create the window and wire
+            // it up as MainWindow (for ShowConfigWindow to work) but skip the initial Show(),
+            // so the app lands quietly in the tray. Manual launch (no flag) shows the window.
+            if (!AppArgs.StartMinimized)
+                desktop.MainWindow = _configWindow;
 
             // The overlay is an independent top-level window so it stays visible when the
             // config window is hidden to the tray.
@@ -74,6 +87,23 @@ public partial class App : Application
         // Disabled item at the top of the menu - just a place to see what version is running.
         var version = new NativeMenuItem { Header = $"Klakr v{AppVersion.Display}", IsEnabled = false };
 
+        _keepAwakeItem = new NativeMenuItem { Header = "Keep Awake: Off" };
+        _keepAwakeItem.Click += (_, _) =>
+        {
+            if (_host is null) return;
+            _host.KeepAwake.SetActive(!_host.Settings.KeepAwakeActive);
+        };
+        RefreshKeepAwakeItem();
+        if (_host is not null)
+            _host.KeepAwake.StateChanged += _ => Dispatcher.UIThread.Post(RefreshKeepAwakeItem);
+
+        var checkForUpdates = new NativeMenuItem { Header = "Check for updates" };
+        checkForUpdates.Click += async (_, _) =>
+        {
+            if (_host is null) return;
+            await _host.Updates.CheckNowAsync();
+        };
+
         var show = new NativeMenuItem { Header = "Show Klakr" };
         show.Click += (_, _) => ShowConfigWindow();
 
@@ -83,6 +113,9 @@ public partial class App : Application
         var menu = new NativeMenu();
         menu.Items.Add(version);
         menu.Items.Add(new NativeMenuItemSeparator());
+        menu.Items.Add(_keepAwakeItem);
+        menu.Items.Add(new NativeMenuItemSeparator());
+        menu.Items.Add(checkForUpdates);
         menu.Items.Add(show);
         menu.Items.Add(quit);
         icon.Menu = menu;
@@ -91,6 +124,19 @@ public partial class App : Application
 
         icon.Clicked += (_, _) => ShowConfigWindow();
         return icon;
+    }
+
+    private void RefreshKeepAwakeItem()
+    {
+        if (_keepAwakeItem is null || _host is null)
+            return;
+        string state = _host.KeepAwake.CurrentState switch
+        {
+            KeepAwakeState.Active => "On",
+            KeepAwakeState.Armed => "Armed",
+            _ => "Off",
+        };
+        _keepAwakeItem.Header = $"Keep Awake: {state}";
     }
 
     private void ApplyOverlaySettings(AppSettings settings)

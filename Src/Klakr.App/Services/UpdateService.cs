@@ -96,6 +96,12 @@ public sealed class UpdateService : IDisposable
     /// <summary>Hides the banner in-memory; the next hourly check re-evaluates.</summary>
     public void DismissForNow() => SetAvailable(null);
 
+    /// <summary>
+    /// Force an immediate check, independent of the hourly loop. Wired to the Settings tab's
+    /// "Check now" button so the user has a way to poke it without waiting an hour.
+    /// </summary>
+    public Task CheckNowAsync() => CheckOnceAsync();
+
     private async Task PollLoopAsync(CancellationToken ct)
     {
         try

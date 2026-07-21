@@ -32,15 +32,29 @@ ergonomics/automation tool, used at your own risk in any given game. See *Fair u
   so you can bind it in other apps like Discord PTT. Pick the key, set a countdown (so
   you can Alt-Tab to the target window), then Tap (one press-release) or Hold (until
   you click Release). Held keys are auto-released if you quit Klakr.
+- **Keep Awake tab** - prevent your machine from sleeping and/or fool activity-tracking
+  apps (Teams, Slack, "You've been idle" popups) so you don't get marked away. Four
+  modes: simulate a key only when actually idle for N seconds (default; won't fire while
+  you're typing), simulate a key always (Caffeine-style blind cadence), Prevent-sleep
+  via Windows' `SetThreadExecutionState`, or Prevent-sleep-allow-screensaver. Bottom-bar
+  toggle for quick on/off from any tab. Time-range gating (`09:00-17:00, 20:00-23:00`),
+  timed activation ("keep awake for the next 30 minutes"), and a colored bubble on the
+  tab plus a tray menu item showing state. Windows-only.
+- **Start with Windows** - a checkbox in the Settings tab writes an HKCU Run entry
+  pointing at Klakr's current exe. Launches minimized to the tray on logon; the config
+  window opens when you click the tray icon. The registry path is refreshed on every
+  launch, so Velopack updates that move the exe don't strand it.
 - **Settings tab** - overlay placement, an About block (Klakr / .NET / OS / SharpHook
   versions and a link to the source repo), and a Diagnostics block (NVAPI availability,
-  last update-check status, buttons to open the profiles folder or reveal settings.json,
-  and a Copy-to-clipboard button for the whole snapshot when filing an issue).
+  last update-check status with a "Check now" button, buttons to open the profiles
+  folder or reveal settings.json, and a Copy-to-clipboard button for the whole snapshot
+  when filing an issue). When an update is available, the "Check now" button switches
+  to "Install and restart".
 
 ## Requirements
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- Windows, macOS, or Linux (X11)
+- **Windows 10 or 11** (only Windows binaries are shipped; see *Platform notes* below)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) if building from source
 
 ## Build & run
 
@@ -80,12 +94,17 @@ Or use the helper script:
 
 ## Platform notes
 
-- **Windows** - works out of the box.
-- **macOS** - Klakr needs **Accessibility permission** to capture and send keys. Grant it under
-  *System Settings → Privacy & Security → Accessibility*; macOS prompts on first use.
-- **Linux** - works on **X11** sessions. **Wayland blocks global hotkeys and key synthesis by
-  design** - Klakr detects a Wayland session and warns you. Log out and pick an "X11"/"Xorg"
-  session.
+- **Windows** - the only platform with shipped binaries. Everything just works.
+- **macOS / Linux (X11)** - the code is written to be portable (Klakr.Core is pure, SharpHook
+  supports both), but **no macOS or Linux binaries are built or released**. You can clone and
+  `dotnet run` if you want to try it. On macOS you'd need to grant Accessibility permission
+  under *System Settings -> Privacy & Security -> Accessibility*. Wayland is a hard block -
+  it doesn't allow global hotkeys or synthetic input by design; Klakr detects a Wayland
+  session and warns you.
+
+Some features are Windows-only regardless: the NVIDIA Display preset (needs NVAPI), the
+Keep Awake tab (uses `SetThreadExecutionState` / `GetLastInputInfo`), and the
+Start-with-Windows toggle (uses the Windows registry).
 
 ## Fair use
 

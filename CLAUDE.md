@@ -12,6 +12,8 @@ See `Docs/DESIGN.md` for product detail and `Docs/TECHARCH.md` for the full arch
 - SharpHook (input hooks + synthesis; wraps libuiohook)
 - NvAPIWrapper.Net (NVIDIA color settings; only loaded if NVAPI is available, gates the Display tab)
 - Velopack (in-app update check + release packaging via the `vpk` CLI in CI)
+- Microsoft.Win32.Registry (Windows-only, for the Start-with-Windows toggle)
+- Direct `kernel32`/`user32` P/Invoke for `SetThreadExecutionState` and `GetLastInputInfo` (Keep Awake)
 - System.Text.Json (polymorphic step serialization)
 - xUnit + FluentAssertions (tests)
 
@@ -78,10 +80,12 @@ dotnet test
 - **Change hotkey behavior**: matching lives in `Hotkey.Matches` (key-only - modifier-agnostic by design); capture lives in `AppHost.CaptureNextHotkeyAsync`.
 - **Cut a release**: run `./Scripts/bump-version.sh` (default Patch; pass `Minor` or `Major` to bump those), commit, push to `main`. `.github/workflows/release.yml` reads `Directory.Build.props`, skips if a release for that version already exists, otherwise tests + Velopack-packs win-x64 self-contained + uploads to GitHub Releases as `vX.Y.Z`. Plain pushes without a bump are a no-op. CI never commits.
 - **When to bump the version**: bump whenever a feature or behavior change is complete and will ship - ideally in the same commit as the change. Do NOT bump for docs/memory/comment changes, refactors with no user-visible effect, or in-progress WIP. A docs-only commit pushed without a bump correctly produces no release. The repo MUST be public for the in-app update check to work (unauthenticated GithubSource).
-- **Tweak the update check**: `Services/UpdateService.cs` polls GitHub via Velopack (5 s startup delay, hourly cadence, silent on network failures). `AppSettings.SkippedUpdateVersion` persists the "Skip this version" choice. Banner state lives on `ConfigWindowViewModel.AvailableUpdateVersion`; the banner row is the topmost dock in `ConfigWindow.axaml`.
+- **Tweak the update check**: `Services/UpdateService.cs` polls GitHub via Velopack (5 s startup delay, hourly cadence, silent on network failures). `LastCheckedUtc` + `LastCheckStatus` snapshot is surfaced in the Settings tab. `CheckNowAsync` is called by both the Settings tab button and the tray "Check for updates" item. `AppSettings.SkippedUpdateVersion` persists the "Skip this version" choice. Banner state lives on `ConfigWindowViewModel.AvailableUpdateVersion`; the banner row is the topmost dock in `ConfigWindow.axaml`.
+- **Adjust Keep Awake**: `Services/KeepAwakeService.cs` owns a 5-second poll loop and dispatches per `KeepAwakeMode` (idle-only key send / blind key send / STES / STES-allow-screensaver). Platform helpers in `Platform/Windows/StayAwake.cs` (SetThreadExecutionState) and `Platform/Windows/IdleTime.cs` (GetLastInputInfo). Time ranges parsed by `Services/TimeRangeSet.cs`. State is a tri-state (Off / Armed / Active) surfaced as a colored bubble in the tab header, text in the tray menu, and a bottom-bar toggle. Poll cadence (5 s) is decoupled from the user-facing interval (default 45 s) so the "send if idle N seconds" guarantee is tight regardless of the user's chosen interval.
 
 ## What NOT to do
 
+- **Don't `taskkill` `Klakr.App.exe` before builds.** The user runs only the Velopack-installed release (at `%LocalAppData%\Klakr\...`), not the dev binary in `bin/`. Task-killing does nothing useful for the build and kills the user's actual running app. Just run `dotnet build` directly.
 - Don't add mouse-movement or cursor automation (explicit non-goal).
 - Don't add anti-cheat evasion logic. Klakr is used at the user's own risk in any given game.
 - Don't pull UI dependencies (Avalonia, CommunityToolkit) into `Klakr.Core`. Core must stay pure.

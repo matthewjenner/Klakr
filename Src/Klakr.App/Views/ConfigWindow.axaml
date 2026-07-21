@@ -13,9 +13,13 @@
         <!-- Numeric fields use this so an empty/invalid entry is ignored, not an error. -->
         <conv:IntTextConverter x:Key="IntText" />
         <conv:KeyDisplayConverter x:Key="KeyDisplay" />
+        <conv:KeepAwakeModeConverter x:Key="KeepAwakeModeDisplay" />
         <!-- Key pickers show friendly names: the digit row as 0-9, not D0-D9. -->
         <DataTemplate x:Key="KeyItemTemplate">
             <TextBlock Text="{Binding Converter={StaticResource KeyDisplay}}" />
+        </DataTemplate>
+        <DataTemplate x:Key="KeepAwakeModeItemTemplate">
+            <TextBlock Text="{Binding Converter={StaticResource KeepAwakeModeDisplay}}" />
         </DataTemplate>
     </Window.Resources>
 
@@ -242,14 +246,18 @@
             <!-- Action bar (always visible across all tabs) -->
             <Border DockPanel.Dock="Bottom" Background="#18808080" CornerRadius="4"
                     Padding="8" Margin="0,8,0,0">
-                <Grid ColumnDefinitions="*,Auto">
+                <Grid ColumnDefinitions="*,Auto,Auto">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
                         <Button Content="Save profile" Command="{Binding SaveCommand}" />
                         <Button Content="Test (start / stop)" Command="{Binding ToggleEngineCommand}" />
                         <TextBlock Text="Engine:" VerticalAlignment="Center" Foreground="Gray" />
                         <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" FontWeight="Bold" />
                     </StackPanel>
-                    <ToggleButton Grid.Column="1" Content="Display preset"
+                    <ToggleButton Grid.Column="1" Content="Keep Awake"
+                                  IsChecked="{Binding KeepAwakeActive}"
+                                  Margin="0,0,6,0"
+                                  ToolTip.Tip="Prevent sleep and/or fool activity-tracking apps like Teams / Slack." />
+                    <ToggleButton Grid.Column="2" Content="Display preset"
                                   IsChecked="{Binding DisplayPresetActive}"
                                   IsVisible="{Binding IsNvidiaAvailable}"
                                   ToolTip.Tip="On: apply each monitor's saved preset. Off: restore NVIDIA defaults." />
@@ -344,95 +352,6 @@
                     </ScrollViewer>
                 </TabItem>
 
-                <TabItem Header="Settings">
-                    <ScrollViewer>
-                        <StackPanel Spacing="18" Margin="8,12,8,8" MaxWidth="640" HorizontalAlignment="Left">
-
-                            <!-- Overlay: app-wide, saves live on any change. -->
-                            <HeaderedContentControl>
-                                <HeaderedContentControl.Header>
-                                    <TextBlock Text="Overlay" FontWeight="Bold" />
-                                </HeaderedContentControl.Header>
-                                <StackPanel Spacing="8" Margin="0,6,0,0">
-                                    <CheckBox Content="Show overlay dot on screen"
-                                              IsChecked="{Binding OverlayVisible}" />
-                                    <StackPanel Spacing="8" IsEnabled="{Binding OverlayVisible}">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="Anchor:" VerticalAlignment="Center" Width="90" />
-                                            <ComboBox Width="200" ItemsSource="{Binding AllOverlayAnchors}"
-                                                      SelectedItem="{Binding OverlayAnchor}" />
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="Nudge:" VerticalAlignment="Center" Width="90" />
-                                            <TextBlock Text="X" VerticalAlignment="Center" />
-                                            <TextBox Classes="num" Text="{Binding OverlayOffsetX, Converter={StaticResource IntText}}" />
-                                            <TextBlock Text="Y" VerticalAlignment="Center" />
-                                            <TextBox Classes="num" Text="{Binding OverlayOffsetY, Converter={StaticResource IntText}}" />
-                                            <TextBlock Text="px  (X+ right, Y+ down)"
-                                                       Foreground="Gray" VerticalAlignment="Center" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </StackPanel>
-                            </HeaderedContentControl>
-
-                            <!-- About: static info about the running build. -->
-                            <HeaderedContentControl>
-                                <HeaderedContentControl.Header>
-                                    <TextBlock Text="About" FontWeight="Bold" />
-                                </HeaderedContentControl.Header>
-                                <StackPanel Spacing="4" Margin="0,6,0,0">
-                                    <TextBlock Text="{Binding DiagnosticsKlakrVersion}" FontWeight="Bold" />
-                                    <TextBlock Text="{Binding DiagnosticsDotNet}" Foreground="Gray" />
-                                    <TextBlock Text="{Binding DiagnosticsOs}" Foreground="Gray" />
-                                    <TextBlock Text="{Binding DiagnosticsSharpHook}" Foreground="Gray" />
-                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,6,0,0">
-                                        <TextBlock Text="Source:" Foreground="Gray" VerticalAlignment="Center" />
-                                        <Button Content="{Binding DiagnosticsRepoUrl}"
-                                                Command="{Binding OpenRepoUrlCommand}"
-                                                Padding="4,0" Background="Transparent" BorderThickness="0"
-                                                Foreground="LightSkyBlue"
-                                                ToolTip.Tip="Open on GitHub" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </HeaderedContentControl>
-
-                            <!-- Diagnostics: live info + shortcuts for the profile / settings folders. -->
-                            <HeaderedContentControl>
-                                <HeaderedContentControl.Header>
-                                    <TextBlock Text="Diagnostics" FontWeight="Bold" />
-                                </HeaderedContentControl.Header>
-                                <StackPanel Spacing="10" Margin="0,6,0,0">
-                                    <TextBlock Text="{Binding DiagnosticsNvidia}" />
-                                    <TextBlock Text="{Binding DiagnosticsUpdateStatus}" />
-
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Button Content="Open profiles folder"
-                                                Command="{Binding OpenProfilesFolderCommand}" />
-                                        <TextBlock Text="{Binding DiagnosticsProfilesFolder}"
-                                                   Foreground="Gray" VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" MaxWidth="380" />
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Button Content="Show settings file"
-                                                Command="{Binding OpenSettingsLocationCommand}" />
-                                        <TextBlock Text="{Binding DiagnosticsSettingsFile}"
-                                                   Foreground="Gray" VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" MaxWidth="380" />
-                                    </StackPanel>
-
-                                    <Button Content="Copy diagnostics to clipboard"
-                                            Click="OnCopyDiagnosticsClick"
-                                            HorizontalAlignment="Left" Margin="0,6,0,0" />
-                                    <TextBlock Text="{Binding CopyDiagnosticsStatus}"
-                                               IsVisible="{Binding HasCopyDiagnosticsStatus}"
-                                               Foreground="LightGreen" FontSize="11" />
-                                </StackPanel>
-                            </HeaderedContentControl>
-
-                        </StackPanel>
-                    </ScrollViewer>
-                </TabItem>
-
                 <TabItem Header="Display" IsVisible="{Binding IsNvidiaAvailable}">
                     <ScrollViewer>
                         <StackPanel Spacing="14" Margin="8,12,8,8">
@@ -499,6 +418,209 @@
 
                             <TextBlock Foreground="Gray" TextWrapping="Wrap"
                                        Text="Sliders preview live on the selected monitor. Click Save to capture as the monitor's preset. The 'Display preset' toggle in the bottom bar flips all monitors with saved presets between their preset and NVIDIA defaults." />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem>
+                    <TabItem.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="10" Height="10" VerticalAlignment="Center"
+                                     Fill="{Binding KeepAwakeStateBrush}" />
+                            <TextBlock Text="Keep Awake" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </TabItem.Header>
+                    <ScrollViewer>
+                        <StackPanel Spacing="14" Margin="8,12,8,8" MaxWidth="640" HorizontalAlignment="Left">
+
+                            <StackPanel Spacing="6">
+                                <CheckBox Content="Keep this machine awake"
+                                          IsChecked="{Binding KeepAwakeActive}" />
+                                <TextBlock Foreground="Gray"
+                                           Text="{Binding KeepAwakeStatusText, StringFormat='Status: {0}'}" />
+                            </StackPanel>
+
+                            <HeaderedContentControl>
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="Method" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Spacing="8" Margin="0,6,0,0">
+                                    <ComboBox Width="360"
+                                              ItemsSource="{Binding AllKeepAwakeModes}"
+                                              SelectedItem="{Binding KeepAwakeMode}"
+                                              ItemTemplate="{StaticResource KeepAwakeModeItemTemplate}" />
+                                    <TextBlock Foreground="Gray" FontSize="11" TextWrapping="Wrap"
+                                               Text="Idle-only sends a key only after N seconds of no real input (won't fire while you're typing). Always sends every N seconds. Prevent-sleep uses SetThreadExecutionState with no key events." />
+                                </StackPanel>
+                            </HeaderedContentControl>
+
+                            <HeaderedContentControl IsVisible="{Binding IsKeySimulationMode}">
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="Key" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Spacing="8" Margin="0,6,0,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="Send:" Width="90" VerticalAlignment="Center" />
+                                        <ComboBox Width="160"
+                                                  ItemsSource="{Binding AllSendKeys}"
+                                                  SelectedItem="{Binding KeepAwakeKey}"
+                                                  ItemTemplate="{StaticResource KeyItemTemplate}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="Interval:" Width="90" VerticalAlignment="Center" />
+                                        <TextBox Classes="num"
+                                                 Text="{Binding KeepAwakeIntervalSeconds, Converter={StaticResource IntText}}" />
+                                        <TextBlock Foreground="Gray" VerticalAlignment="Center"
+                                                   Text="seconds  (idle threshold or send cadence per mode)" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </HeaderedContentControl>
+
+                            <HeaderedContentControl>
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="Active hours" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Spacing="6" Margin="0,6,0,0">
+                                    <TextBox Width="360" HorizontalAlignment="Left"
+                                             Text="{Binding KeepAwakeTimeRanges}"
+                                             PlaceholderText="e.g. 09:00-17:00, 20:00-23:00" />
+                                    <TextBlock Foreground="Gray" FontSize="11" TextWrapping="Wrap"
+                                               Text="Comma-separated HH:MM-HH:MM ranges. Leave empty for always-active. Ranges may wrap midnight (22:00-06:00)." />
+                                </StackPanel>
+                            </HeaderedContentControl>
+
+                            <HeaderedContentControl>
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="Timed activation" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+                                    <TextBlock Text="Keep awake for" VerticalAlignment="Center" />
+                                    <TextBox Classes="num"
+                                             Text="{Binding TimedOnMinutes, Converter={StaticResource IntText}}" />
+                                    <TextBlock Text="minutes" VerticalAlignment="Center" />
+                                    <Button Content="Start"
+                                            Command="{Binding ActivateKeepAwakeTimedCommand}" />
+                                </StackPanel>
+                            </HeaderedContentControl>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- Settings is always the last tab. New feature tabs go BEFORE this one. -->
+                <TabItem Header="Settings">
+                    <ScrollViewer>
+                        <StackPanel Spacing="18" Margin="8,12,8,8" MaxWidth="640" HorizontalAlignment="Left">
+
+                            <!-- Overlay: app-wide, saves live on any change. -->
+                            <HeaderedContentControl>
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="Overlay" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Spacing="8" Margin="0,6,0,0">
+                                    <CheckBox Content="Show overlay dot on screen"
+                                              IsChecked="{Binding OverlayVisible}" />
+                                    <StackPanel Spacing="8" IsEnabled="{Binding OverlayVisible}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="Anchor:" VerticalAlignment="Center" Width="90" />
+                                            <ComboBox Width="200" ItemsSource="{Binding AllOverlayAnchors}"
+                                                      SelectedItem="{Binding OverlayAnchor}" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="Nudge:" VerticalAlignment="Center" Width="90" />
+                                            <TextBlock Text="X" VerticalAlignment="Center" />
+                                            <TextBox Classes="num" Text="{Binding OverlayOffsetX, Converter={StaticResource IntText}}" />
+                                            <TextBlock Text="Y" VerticalAlignment="Center" />
+                                            <TextBox Classes="num" Text="{Binding OverlayOffsetY, Converter={StaticResource IntText}}" />
+                                            <TextBlock Text="px  (X+ right, Y+ down)"
+                                                       Foreground="Gray" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </HeaderedContentControl>
+
+                            <!-- Startup: writes HKCU Run entry pointing at the current exe with the minimized flag. -->
+                            <HeaderedContentControl IsVisible="{Binding IsStartWithWindowsSupported}">
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="Startup" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Spacing="6" Margin="0,6,0,0">
+                                    <CheckBox Content="Start Klakr with Windows"
+                                              IsChecked="{Binding StartWithWindows}"
+                                              ToolTip.Tip="Adds an HKCU Run entry. Path is refreshed on each launch so it survives Velopack updates." />
+                                    <TextBlock Text="Launches minimized to the system tray; click the tray icon to open the config window."
+                                               Foreground="Gray" FontSize="11" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </HeaderedContentControl>
+
+                            <!-- About: static info about the running build. -->
+                            <HeaderedContentControl>
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="About" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Spacing="4" Margin="0,6,0,0">
+                                    <TextBlock Text="{Binding DiagnosticsKlakrVersion}" FontWeight="Bold" />
+                                    <TextBlock Text="{Binding DiagnosticsDotNet}" Foreground="Gray" />
+                                    <TextBlock Text="{Binding DiagnosticsOs}" Foreground="Gray" />
+                                    <TextBlock Text="{Binding DiagnosticsSharpHook}" Foreground="Gray" />
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,6,0,0">
+                                        <TextBlock Text="Source:" Foreground="Gray" VerticalAlignment="Center" />
+                                        <Button Content="{Binding DiagnosticsRepoUrl}"
+                                                Command="{Binding OpenRepoUrlCommand}"
+                                                Padding="4,0" Background="Transparent" BorderThickness="0"
+                                                Foreground="LightSkyBlue"
+                                                ToolTip.Tip="Open on GitHub" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </HeaderedContentControl>
+
+                            <!-- Diagnostics: live info + shortcuts for the profile / settings folders. -->
+                            <HeaderedContentControl>
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="Diagnostics" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Spacing="10" Margin="0,6,0,0">
+                                    <TextBlock Text="{Binding DiagnosticsNvidia}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding DiagnosticsUpdateStatus}"
+                                                   VerticalAlignment="Center" />
+                                        <Button Content="Check now"
+                                                Command="{Binding CheckForUpdatesNowCommand}"
+                                                IsEnabled="{Binding !IsCheckingForUpdates}"
+                                                IsVisible="{Binding !IsUpdateBannerVisible}"
+                                                Padding="8,2" />
+                                        <Button Content="Install and restart"
+                                                Command="{Binding InstallUpdateCommand}"
+                                                IsEnabled="{Binding CanInstallUpdate}"
+                                                IsVisible="{Binding IsUpdateBannerVisible}"
+                                                Padding="8,2"
+                                                Background="#1F4D2F" Foreground="#B8F0C6" />
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="Open profiles folder"
+                                                Command="{Binding OpenProfilesFolderCommand}" />
+                                        <TextBlock Text="{Binding DiagnosticsProfilesFolder}"
+                                                   Foreground="Gray" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="380" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="Show settings file"
+                                                Command="{Binding OpenSettingsLocationCommand}" />
+                                        <TextBlock Text="{Binding DiagnosticsSettingsFile}"
+                                                   Foreground="Gray" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="380" />
+                                    </StackPanel>
+
+                                    <Button Content="Copy diagnostics to clipboard"
+                                            Click="OnCopyDiagnosticsClick"
+                                            HorizontalAlignment="Left" Margin="0,6,0,0" />
+                                    <TextBlock Text="{Binding CopyDiagnosticsStatus}"
+                                               IsVisible="{Binding HasCopyDiagnosticsStatus}"
+                                               Foreground="LightGreen" FontSize="11" />
+                                </StackPanel>
+                            </HeaderedContentControl>
+
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>

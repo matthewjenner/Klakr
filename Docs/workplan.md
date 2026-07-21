@@ -11,16 +11,28 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   awaiting full manual testing.
 - **Last updated:** 2026-06-08
 - **Build status:** `dotnet build` green (0 warnings); `dotnet test` green (40/40 passing).
-- **Latest:** **Settings tab refactor** shipped (v1.0.3). New Settings tab holds Overlay
-  placement (moved out of the left panel, which is now just profiles), an About block
-  (Klakr / .NET / OS / SharpHook versions + clickable repo link), and a Diagnostics block
-  (NVAPI availability, update-check status with relative time, buttons to open the
-  profiles folder or reveal `settings.json` in Explorer, and a Copy-to-clipboard button
-  for the whole snapshot). Backed by new `Services/Diagnostics.cs`. `UpdateService` now
-  tracks `LastCheckedUtc` + `LastCheckStatus` so the update banner isn't the only signal.
-  Prep for the Start-with-Windows toggle and Keep Awake feature to land in the same tab.
-- **Previously:** Send Key tab shipped (v1.0.2). Release pipeline + auto-update shipped
-  and confirmed working end-to-end (v1.0.0-1.0.1).
+- **Latest:** **Keep Awake feature** shipped (v1.1.0), along with Start-with-Windows
+  auto-launch, manual "Check for updates" (both Settings-tab button and tray menu item),
+  the Settings tab is now the last tab (new features slot before it), and README's
+  cross-platform language was made honest (Windows-only in practice).
+  - Keep Awake modes (mutually exclusive, matching Caffeine + one improvement): simulate
+    key idle-only (default; sends F16 only after 45 s of no real input), simulate key
+    always (Caffeine-style blind), Prevent sleep (SetThreadExecutionState), Prevent sleep
+    with screensaver allowed. Poll cadence 5 s (kernel syscall, essentially free);
+    decoupled from the user-facing interval so worst-case send latency is threshold + 5 s.
+  - Time-range gating: comma-separated `HH:MM-HH:MM`, empty = always. Ranges may wrap
+    midnight.
+  - Timed activation: "Keep awake for N minutes" input + Start button; poll thread flips
+    master off when the deadline passes.
+  - Tri-state indicator: green (Active) / gray (Armed - outside allowed hours) / red
+    (Off) as a bubble on the Keep Awake tab header and text in the tray menu.
+  - Tray menu now has: version (disabled), separator, "Keep Awake: On/Off/Armed"
+    (click to toggle), separator, "Check for updates", "Show Klakr", "Quit Klakr".
+  - Start-with-Windows: HKCU `Run` entry pointing at `Environment.ProcessPath` +
+    `--minimized`; refreshed on every launch so it survives Velopack updates. Config
+    window skips its initial Show() when the flag is present, landing quietly in the tray.
+- **Previously:** Settings tab refactor (v1.0.3), Send Key tab (v1.0.2), release
+  pipeline + auto-update (v1.0.0-1.0.1).
   GitHub Actions release workflow on push to main reads `Directory.Build.props`, skips if
   a tag for that version already exists, otherwise builds + tests + Velopack-packs win-x64
   self-contained and publishes a GitHub Release. `Scripts/bump-version.sh [Major|Minor|Patch]`
@@ -183,6 +195,31 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   longer silent-only - they show as "Check failed: HttpRequestException." in the tab so
   the user has something to look at if something breaks like the private-repo incident
   from v1.0.1 debugging.
+- **Keep Awake modes are mutually exclusive** (matches Caffeine). Radio-like dropdown
+  with four options; the key/interval fields only show when a key-simulation mode is
+  selected. The user's default (`SimulateKeyIdleOnly`, F16, 45 s) covers the common case
+  without the annoyance of Caffeine's blind send while typing.
+- **Keep Awake poll cadence is decoupled from user interval.** Fixed 5 s poll,
+  user-configurable idle threshold. Worst-case gap from idle-start to key-send is
+  threshold + 5 s (so 50 s for the 45 s default) - solidly under any 60 s activity
+  timer. Caffeine's naive single-timer model can go up to 2x threshold in the worst case.
+- **STES is re-asserted every tick.** SetThreadExecutionState is per-thread; the timer
+  runs on a thread-pool worker which can change. Re-asserting on every tick makes the
+  behaviour thread-agnostic. Cheap - just a syscall.
+- **Timed-on / master-toggle interaction.** Manually toggling the master always clears
+  any pending timed-on deadline (manual action beats a countdown). Timed-on sets both
+  `KeepAwakeActive=true` and `KeepAwakeUntilUtc=now+N`. Poll loop clears both when the
+  deadline passes.
+- **Auto-start writes `Environment.ProcessPath`, refreshed on every launch.** Velopack
+  updates move the exe between `%LocalAppData%\Klakr\app-X.Y.Z\...` subfolders. Rather
+  than track "current" via Velopack's stub, we just rewrite the registry every launch
+  when the setting is on. Self-healing after any update, no maintenance.
+- **`--minimized` flag suppresses the initial config-window Show().** MainWindow only
+  gets set when NOT minimized; ShutdownMode.OnExplicitShutdown means MainWindow=null
+  doesn't shut the app down. Tray click still opens the window normally.
+- **Settings tab is always last** by convention. New feature tabs slot before it. The
+  Keep Awake tab header uses a colored Ellipse bubble for the tri-state, done via a
+  custom `TabItem.Header` StackPanel; the tab text stays a plain "Keep Awake".
 
 ## Known edges (revisit in Phase 4 config validation)
 

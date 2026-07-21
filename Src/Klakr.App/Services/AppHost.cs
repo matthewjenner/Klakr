@@ -23,6 +23,7 @@ public sealed class AppHost : IDisposable
     private readonly Lock _gate = new();
     private readonly SettingsStore _settingsStore;
     private readonly UpdateService _updates;
+    private readonly KeepAwakeService _keepAwake;
 
     private List<Profile> _armed = [];
     private Profile? _running;
@@ -66,6 +67,10 @@ public sealed class AppHost : IDisposable
 
         // Built last so it can read Settings.SkippedUpdateVersion and call back into UpdateSettings.
         _updates = new UpdateService(this);
+
+        // Keep Awake reads Settings and calls PressKey/ReleaseKey and SetThreadExecutionState
+        // via the platform helpers; built last for the same reason.
+        _keepAwake = new KeepAwakeService(this);
     }
 
     public SequenceEngine Engine { get; }
@@ -86,6 +91,9 @@ public sealed class AppHost : IDisposable
 
     /// <summary>Tracks the latest GitHub release and backs the config window's update banner.</summary>
     public UpdateService Updates => _updates;
+
+    /// <summary>Prevents system sleep / fools activity apps. See the Keep Awake tab.</summary>
+    public KeepAwakeService KeepAwake => _keepAwake;
 
     /// <summary>NVIDIA's default values - what "Restore Defaults" in the control panel sets.</summary>
     public static DisplayPreset DefaultDisplayPreset { get; }
@@ -332,6 +340,7 @@ public sealed class AppHost : IDisposable
 
         _input.Dispose();
         _updates.Dispose();
+        _keepAwake.Dispose();
 
         if (IsNvidiaAvailable && OperatingSystem.IsWindows())
             DisplayController.Shutdown();

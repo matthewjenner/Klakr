@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Klakr.App.Platform;
+using Klakr.App.Platform.Windows;
 using Klakr.App.Services;
 using Klakr.App.ViewModels.Steps;
 using Klakr.Core;
@@ -126,6 +128,39 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
     [ObservableProperty]
     private string _sendStatus = "Ready.";
 
+    // --- Startup / Auto-start ---
+
+    [ObservableProperty]
+    private bool _startWithWindows;
+
+    // --- Keep Awake ---
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(KeepAwakeStatusText))]
+    [NotifyPropertyChangedFor(nameof(KeepAwakeStateBrush))]
+    private bool _keepAwakeActive;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsKeySimulationMode))]
+    private KeepAwakeMode _keepAwakeMode = KeepAwakeMode.SimulateKeyIdleOnly;
+
+    [ObservableProperty]
+    private Key _keepAwakeKey = Key.F16;
+
+    [ObservableProperty]
+    private int _keepAwakeIntervalSeconds = 45;
+
+    [ObservableProperty]
+    private string _keepAwakeTimeRanges = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(KeepAwakeStatusText))]
+    [NotifyPropertyChangedFor(nameof(KeepAwakeStateBrush))]
+    private KeepAwakeState _keepAwakeState = KeepAwakeState.Off;
+
+    [ObservableProperty]
+    private int _timedOnMinutes = 30;
+
     // The key currently held by the test tool, if any. Set on hold-start, cleared on release.
     // Tracked separately from SelectedSendKey so the user can change the dropdown while a key
     // is held without confusing which key Release will let go.
@@ -152,6 +187,22 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
         OverlayOffsetX = host.Settings.OverlayOffsetX;
         OverlayOffsetY = host.Settings.OverlayOffsetY;
         DisplayPresetActive = host.Settings.DisplayPresetActive;
+        // Trust the registry over the persisted flag - if the user removed the entry via
+        // Task Manager, we want the checkbox to reflect that on next launch.
+        StartWithWindows = IsStartWithWindowsSupported
+            && (OperatingSystem.IsWindows() && AutoStart.IsEnabled);
+
+        KeepAwakeActive = host.Settings.KeepAwakeActive;
+        KeepAwakeMode = host.Settings.KeepAwakeMode;
+        KeepAwakeKey = host.Settings.KeepAwakeKey;
+        KeepAwakeIntervalSeconds = host.Settings.KeepAwakeIntervalSeconds;
+        KeepAwakeTimeRanges = host.Settings.KeepAwakeTimeRanges;
+        KeepAwakeState = host.KeepAwake.CurrentState;
+        host.KeepAwake.StateChanged += s => Dispatcher.UIThread.Post(() =>
+        {
+            KeepAwakeState = s;
+            KeepAwakeActive = _host.Settings.KeepAwakeActive; // timed-on expiry flips this from off-thread
+        });
         // Setting SelectedMonitor triggers OnSelectedMonitorChanged, which loads its preset
         // into the sliders. Both suppress flags keep that from applying or persisting at startup.
         SelectedMonitor = host.Settings.LastDisplayName
@@ -195,6 +246,33 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
     /// can still appear for UI testing, but Install stays disabled.
     /// </summary>
     public bool CanInstallUpdate => _host.Updates.CanInstall;
+
+    /// <summary>Windows-only registry write; the toggle hides on non-Windows.</summary>
+    public bool IsStartWithWindowsSupported => OperatingSystem.IsWindows();
+
+    /// <summary>All Keep Awake modes, for the mode dropdown.</summary>
+    public IReadOnlyList<KeepAwakeMode> AllKeepAwakeModes { get; } = Enum.GetValues<KeepAwakeMode>();
+
+    /// <summary>True when the current mode uses key simulation (drives visibility of the key/interval fields).</summary>
+    public bool IsKeySimulationMode => KeepAwakeMode.SendsKey();
+
+    /// <summary>Human-readable status shown in the tab bubble tooltip / tray menu.</summary>
+    public string KeepAwakeStatusText => KeepAwakeState switch
+    {
+        KeepAwakeState.Active => _host.Settings.KeepAwakeUntilUtc is DateTime u
+            ? $"Active (until {u.ToLocalTime():HH:mm})"
+            : "Active",
+        KeepAwakeState.Armed => "Armed (outside allowed hours)",
+        _ => "Off",
+    };
+
+    /// <summary>Bubble color: green active, gray armed, red off.</summary>
+    public IBrush KeepAwakeStateBrush => KeepAwakeState switch
+    {
+        KeepAwakeState.Active => new SolidColorBrush(Color.FromRgb(0x50, 0xD0, 0x50)),
+        KeepAwakeState.Armed => new SolidColorBrush(Color.FromRgb(0x90, 0x90, 0x90)),
+        _ => new SolidColorBrush(Color.FromRgb(0xE0, 0x60, 0x60)),
+    };
 
     /// <summary>Every <see cref="Key"/>, for the Send-Key dropdown.</summary>
     public IReadOnlyList<Key> AllSendKeys => KeyChoices.All;
@@ -474,6 +552,68 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
 
     partial void OnProfileNameChanged(string value) => RefreshHotkeyWarning();
 
+    partial void OnKeepAwakeActiveChanged(bool value)
+    {
+        if (_suppressSettingsPush)
+            return;
+        _host.KeepAwake.SetActive(value);
+    }
+
+    partial void OnKeepAwakeModeChanged(KeepAwakeMode value)
+    {
+        if (_suppressSettingsPush)
+            return;
+        _host.UpdateSettings(_host.Settings with { KeepAwakeMode = value });
+        _host.KeepAwake.Reapply();
+    }
+
+    partial void OnKeepAwakeKeyChanged(Key value)
+    {
+        if (_suppressSettingsPush)
+            return;
+        _host.UpdateSettings(_host.Settings with { KeepAwakeKey = value });
+    }
+
+    partial void OnKeepAwakeIntervalSecondsChanged(int value)
+    {
+        if (_suppressSettingsPush || value <= 0)
+            return;
+        _host.UpdateSettings(_host.Settings with { KeepAwakeIntervalSeconds = value });
+    }
+
+    partial void OnKeepAwakeTimeRangesChanged(string value)
+    {
+        if (_suppressSettingsPush)
+            return;
+        _host.UpdateSettings(_host.Settings with { KeepAwakeTimeRanges = value ?? "" });
+        _host.KeepAwake.Reapply();
+    }
+
+    /// <summary>Turn on Keep Awake for <see cref="TimedOnMinutes"/> and let it auto-off.</summary>
+    [RelayCommand]
+    private void ActivateKeepAwakeTimed()
+    {
+        int minutes = Math.Max(1, TimedOnMinutes);
+        _host.KeepAwake.ActivateFor(TimeSpan.FromMinutes(minutes));
+        // Refresh the checkbox from the newly-updated settings (KeepAwake.ActivateFor toggled it).
+        _suppressSettingsPush = true;
+        KeepAwakeActive = _host.Settings.KeepAwakeActive;
+        _suppressSettingsPush = false;
+    }
+
+    partial void OnStartWithWindowsChanged(bool value)
+    {
+        if (_suppressSettingsPush || !OperatingSystem.IsWindows())
+            return;
+
+        if (value)
+            AutoStart.Enable();
+        else
+            AutoStart.Disable();
+
+        _host.UpdateSettings(_host.Settings with { StartWithWindows = value });
+    }
+
     partial void OnOverlayVisibleChanged(bool value) => PushOverlaySettings();
 
     partial void OnOverlayAnchorChanged(OverlayAnchor value) => PushOverlaySettings();
@@ -674,6 +814,28 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
             // Missing default browser is not worth surfacing - the URL is right there in the UI.
         }
     }
+
+    /// <summary>
+    /// Force an immediate update check and refresh the status line when it returns.
+    /// </summary>
+    [RelayCommand]
+    private async Task CheckForUpdatesNow()
+    {
+        IsCheckingForUpdates = true;
+        DiagnosticsUpdateStatus = "Checking...";
+        try
+        {
+            await _host.Updates.CheckNowAsync();
+        }
+        finally
+        {
+            IsCheckingForUpdates = false;
+            RefreshUpdateStatus();
+        }
+    }
+
+    [ObservableProperty]
+    private bool _isCheckingForUpdates;
 
     /// <summary>Re-reads the update service's last-check snapshot into the diagnostics line.</summary>
     public void RefreshUpdateStatus()

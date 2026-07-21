@@ -75,6 +75,7 @@ public sealed class UpdateService : IDisposable
 
         try
         {
+            DiagLog.UpdateInstallStarted(_pending.TargetFullRelease.Version.ToString());
             await _manager.DownloadUpdatesAsync(_pending);
             _manager.ApplyUpdatesAndRestart(_pending);
         }
@@ -124,8 +125,11 @@ public sealed class UpdateService : IDisposable
         if (_manager is null)
         {
             RecordStatus("Update manager unavailable.");
+            DiagLog.UpdateCheckResult("Update manager unavailable");
             return;
         }
+
+        DiagLog.UpdateCheckStarted();
 
         try
         {
@@ -165,6 +169,7 @@ public sealed class UpdateService : IDisposable
             LastCheckedUtc = DateTime.UtcNow;
             LastCheckStatus = status;
         }
+        DiagLog.UpdateCheckResult(status);
     }
 
     private void SetAvailable(string? version)

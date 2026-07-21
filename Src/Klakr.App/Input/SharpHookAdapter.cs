@@ -1,3 +1,4 @@
+using Klakr.App.Services;
 using Klakr.Core.Input;
 using SharpHook;
 using SharpHook.Data;
@@ -53,13 +54,19 @@ public sealed class SharpHookAdapter : IInputHook, IInputSimulator
     public void PressKey(Key key)
     {
         if (KeyCodeMap.ToKeyCode(key) is { } code)
+        {
             _simulator.SimulateKeyPress(code);
+            DiagLog.KeyPressed(key);
+        }
     }
 
     public void ReleaseKey(Key key)
     {
         if (KeyCodeMap.ToKeyCode(key) is { } code)
+        {
             _simulator.SimulateKeyRelease(code);
+            DiagLog.KeyReleased(key);
+        }
     }
 
     public void Dispose()

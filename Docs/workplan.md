@@ -11,7 +11,28 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
   awaiting full manual testing.
 - **Last updated:** 2026-06-08
 - **Build status:** `dotnet build` green (0 warnings); `dotnet test` green (40/40 passing).
-- **Latest:** **Keep Awake feature** shipped (v1.1.0), along with Start-with-Windows
+- **Latest (v1.1.1):** **Diagnostics sidecar log** shipped, plus config-window position
+  persistence and a non-destructive settings.json schema migration on startup.
+  - New `Services/DiagLog.cs` - strongly-typed emit surface (one method per event,
+    formatting lives only there), zero-cost when disabled (single bool check), ring buffer
+    capped at 1000, wired into ~20 call sites across AppHost, KeepAwake, SendKey, Display,
+    Update, AutoStart, ProfileStore, and SharpHookAdapter (every synthesized key).
+  - `Views/DiagnosticsWindow` - separate resizable window opened via a Settings-tab
+    checkbox. Six category filter checkboxes (System / Engine / KeepAwake / Display /
+    KeyInput / Update) with soft filtering (entries stay in the buffer even when hidden).
+    Auto-scroll-to-bottom with pause-when-you-scroll-up detection. Clear + Copy buttons.
+  - Enable/disable is coupled to window visibility - opening enables, closing disables and
+    clears the buffer, so nothing accumulates when you're not looking. Config window
+    close-to-tray also closes the sidecar.
+  - `AppSettings` gains `ConfigWindow{X,Y,Width,Height}` and `DiagnosticsWindow{X,Y,Width,
+    Height}` (all nullable ints). Both windows persist their rects on close and validate
+    against `Screens.All` on open, falling back to Avalonia defaults if the saved position
+    is off-screen (monitor unplugged / resolution change).
+  - `SettingsStore.MigrateSchemaIfNeeded()` runs first thing in `AppHost` ctor. Loads
+    existing settings, immediately re-saves the full object. Every user value is
+    preserved (System.Text.Json defaults for missing fields, all init props round-trip);
+    unknown JSON keys drop off. Idempotent - only writes if the on-disk text differs.
+- **Previously (v1.1.0):** **Keep Awake feature** shipped, along with Start-with-Windows
   auto-launch, manual "Check for updates" (both Settings-tab button and tray menu item),
   the Settings tab is now the last tab (new features slot before it), and README's
   cross-platform language was made honest (Windows-only in practice).
@@ -220,6 +241,26 @@ See `DESIGN.md` (product) and `TECHARCH.md` (architecture) for the spec this pla
 - **Settings tab is always last** by convention. New feature tabs slot before it. The
   Keep Awake tab header uses a colored Ellipse bubble for the tri-state, done via a
   custom `TabItem.Header` StackPanel; the tab text stays a plain "Keep Awake".
+- **Diagnostic logging is strongly-typed, not free-form.** `DiagLog.KeepAwakeKeySentIdle`
+  is a real method with typed parameters, not `DiagLog.Log("KeepAwake sent ...")`. Every
+  log site's string lives only inside the DiagLog method body. Adding a new event = adding
+  a method. Compiler enforces call sites match the signature; no string drift.
+- **DiagLog is off unless the sidecar is open.** `Enabled` is checked at the top of every
+  Emit; when false, nothing is allocated. Sidecar open -> `Enable()` (clears buffer, starts
+  collecting). Sidecar close -> `Disable()` (clears buffer, stops collecting). No log-
+  storage leak when the user's not actively debugging.
+- **Filter is soft (hidden but retained).** Ring buffer keeps all entries; category
+  checkboxes just drive visibility. Toggling a filter on reveals recent history from that
+  category without needing to reproduce. Buffer bound at 1000 lines.
+- **Window position persistence uses `Screens.All` validation.** Saved rect is applied
+  only if its top-left is inside a currently-connected screen's WorkingArea. Handles the
+  unplugged-monitor case cleanly - if the saved position no longer lands on any screen,
+  we skip and let Avalonia default (which uses the current-monitor-of-launch heuristic).
+- **Settings.json migration is idempotent and non-destructive.** Load-and-immediately-
+  save on startup. STJ preserves every existing value on read (missing fields use record
+  defaults); every property on `AppSettings` is written on save. The migration path only
+  actually writes when the on-disk text differs from the round-tripped text, so no
+  needless file churn.
 
 ## Known edges (revisit in Phase 4 config validation)
 

@@ -574,6 +574,20 @@
                                 </StackPanel>
                             </HeaderedContentControl>
 
+                            <!-- Diagnostics log sidecar: opens a separate window. Off by default. -->
+                            <HeaderedContentControl>
+                                <HeaderedContentControl.Header>
+                                    <TextBlock Text="Diagnostics log" FontWeight="Bold" />
+                                </HeaderedContentControl.Header>
+                                <StackPanel Spacing="6" Margin="0,6,0,0">
+                                    <CheckBox Content="Show diagnostics log"
+                                              IsChecked="{Binding ShowDiagnosticsLog}"
+                                              ToolTip.Tip="Opens a separate window streaming everything Klakr is doing. Off by default; nothing is recorded until you open it." />
+                                    <TextBlock Foreground="Gray" FontSize="11" TextWrapping="Wrap"
+                                               Text="See what the app is doing internally: keys sent, engine start/stop, Keep Awake decisions, display preset applies, and more. Filter by category in the sidecar window." />
+                                </StackPanel>
+                            </HeaderedContentControl>
+
                             <!-- Diagnostics: live info + shortcuts for the profile / settings folders. -->
                             <HeaderedContentControl>
                                 <HeaderedContentControl.Header>

@@ -50,6 +50,11 @@ ergonomics/automation tool, used at your own risk in any given game. See *Fair u
   folder or reveal settings.json, and a Copy-to-clipboard button for the whole snapshot
   when filing an issue). When an update is available, the "Check now" button switches
   to "Install and restart".
+- **Diagnostics log sidecar** - a Settings-tab checkbox opens a separate window that
+  streams what Klakr is doing internally: hotkeys triggered, engine start/stop, every
+  synthesized key press, Keep Awake decisions (with idle duration), display presets
+  applied, update checks, settings persistence. Six per-category filter checkboxes.
+  Nothing is recorded when the sidecar is closed, so there's zero background overhead.
 
 ## Requirements
 

@@ -16,6 +16,7 @@ public partial class App : Application
     private AppHost? _host;
     private ConfigWindow? _configWindow;
     private OverlayWindow? _overlay;
+    private DiagnosticsWindow? _diagnosticsWindow;
     private TrayIcon? _trayIcon;
     private NativeMenuItem? _keepAwakeItem;
     private bool _quitting;
@@ -36,9 +37,11 @@ public partial class App : Application
             if (OperatingSystem.IsWindows() && _host.Settings.StartWithWindows)
                 AutoStart.Enable();
 
+            var configVm = new ConfigWindowViewModel(_host);
+            configVm.DiagnosticsLogRequested += OnDiagnosticsLogRequested;
             _configWindow = new ConfigWindow
             {
-                DataContext = new ConfigWindowViewModel(_host),
+                DataContext = configVm,
             };
             _configWindow.Closing += OnConfigWindowClosing;
 
@@ -62,6 +65,16 @@ public partial class App : Application
 
             // The overlay is shown (or not) by ApplyOverlaySettings, per the saved setting.
             _host.Start();
+
+            // Enabled starts false; the startup log line will only appear if the user later
+            // toggles the sidecar on. Emit it anyway so it's the first entry they see when
+            // they DO open the sidecar (well - would be, if we were logging pre-enable).
+            // In practice: this is a no-op unless someone rewires DiagLog.
+            DiagLog.AppStarted(
+                AppVersion.Display,
+                System.Runtime.InteropServices.RuntimeInformation.OSDescription.Trim(),
+                _host.IsNvidiaAvailable,
+                AppArgs.StartMinimized);
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -160,6 +173,62 @@ public partial class App : Application
         // Closing the config window hides it to the tray rather than quitting the app.
         e.Cancel = true;
         _configWindow?.Hide();
+
+        // Close the diagnostics sidecar so it doesn't linger when the config is trayed.
+        CloseDiagnosticsWindow();
+    }
+
+    private void OnDiagnosticsLogRequested(bool show)
+    {
+        if (show)
+            OpenDiagnosticsWindow();
+        else
+            CloseDiagnosticsWindow();
+    }
+
+    private void OpenDiagnosticsWindow()
+    {
+        if (_host is null)
+            return;
+        if (_diagnosticsWindow is not null)
+        {
+            _diagnosticsWindow.Activate();
+            return;
+        }
+
+        DiagLog.Enable();
+        _diagnosticsWindow = new DiagnosticsWindow
+        {
+            DataContext = new DiagnosticsWindowViewModel(),
+        };
+        _diagnosticsWindow.AttachHost(_host);
+        _diagnosticsWindow.Closed += OnDiagnosticsWindowClosed;
+        Window? owner = _configWindow;
+        if (owner is not null)
+            _diagnosticsWindow.Show(owner);
+        else
+            _diagnosticsWindow.Show();
+    }
+
+    private void CloseDiagnosticsWindow()
+    {
+        if (_diagnosticsWindow is null)
+            return;
+        // Closed handler will null the field and reflect the state back to the checkbox.
+        _diagnosticsWindow.Close();
+    }
+
+    private void OnDiagnosticsWindowClosed(object? sender, EventArgs e)
+    {
+        if (_diagnosticsWindow is not null)
+        {
+            _diagnosticsWindow.Closed -= OnDiagnosticsWindowClosed;
+            _diagnosticsWindow = null;
+        }
+        // DiagLog.Disable() is called by DiagnosticsWindow.OnClosing.
+        // Reflect state back to the checkbox so it stays in sync if the window closed via X.
+        if (_configWindow?.DataContext is ConfigWindowViewModel vm && vm.ShowDiagnosticsLog)
+            vm.ShowDiagnosticsLog = false;
     }
 
     private void ShowConfigWindow()

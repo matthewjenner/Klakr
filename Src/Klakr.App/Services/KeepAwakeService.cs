@@ -50,6 +50,7 @@ public sealed class KeepAwakeService : IDisposable
             KeepAwakeActive = active,
             KeepAwakeUntilUtc = null,
         });
+        DiagLog.KeepAwakeMasterToggled(active);
         Reapply();
     }
 
@@ -64,6 +65,7 @@ public sealed class KeepAwakeService : IDisposable
             KeepAwakeActive = true,
             KeepAwakeUntilUtc = DateTime.UtcNow + duration,
         });
+        DiagLog.KeepAwakeTimedOnStarted((int)Math.Round(duration.TotalMinutes));
         Reapply();
     }
 
@@ -95,6 +97,7 @@ public sealed class KeepAwakeService : IDisposable
         // Timed-on expiry: master flips off, deadline cleared.
         if (s.KeepAwakeUntilUtc is DateTime until && DateTime.UtcNow >= until)
         {
+            DiagLog.KeepAwakeTimedOnExpired();
             _host.UpdateSettings(s with
             {
                 KeepAwakeActive = false,
@@ -127,14 +130,20 @@ public sealed class KeepAwakeService : IDisposable
                 {
                     TimeSpan idle = IdleTime.Since();
                     if (idle.TotalSeconds >= s.KeepAwakeIntervalSeconds)
+                    {
+                        DiagLog.KeepAwakeKeySentIdle(s.KeepAwakeKey, idle);
                         SendKey(s.KeepAwakeKey);
+                    }
                 }
                 break;
 
             case KeepAwakeMode.SimulateKeyAlways:
                 TimeSpan sinceLast = DateTime.UtcNow - _lastKeyFireUtc;
                 if (sinceLast.TotalSeconds >= s.KeepAwakeIntervalSeconds)
+                {
+                    DiagLog.KeepAwakeKeySentBlind(s.KeepAwakeKey);
                     SendKey(s.KeepAwakeKey);
+                }
                 break;
 
             case KeepAwakeMode.PreventSleep:
@@ -197,13 +206,16 @@ public sealed class KeepAwakeService : IDisposable
         {
             case KeepAwakeMode.PreventSleep:
                 StayAwake.KeepDisplayOn();
+                DiagLog.KeepAwakeStesApplied("prevent sleep + display off");
                 break;
             case KeepAwakeMode.PreventSleepAllowScreensaver:
                 StayAwake.KeepSystemOn();
+                DiagLog.KeepAwakeStesApplied("prevent sleep only");
                 break;
             default:
                 // Key-simulation modes don't use STES.
                 StayAwake.Clear();
+                DiagLog.KeepAwakeStesCleared();
                 break;
         }
     }
@@ -213,6 +225,7 @@ public sealed class KeepAwakeService : IDisposable
         KeepAwakeState state = Evaluate();
         if (state == _lastState)
             return;
+        DiagLog.KeepAwakeStateChanged(_lastState, state);
         _lastState = state;
         Dispatcher.UIThread.Post(() => StateChanged?.Invoke(state));
     }

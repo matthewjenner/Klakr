@@ -22,6 +22,9 @@ namespace Klakr.App.ViewModels;
 public sealed partial class ConfigWindowViewModel : ObservableObject
 {
     private readonly AppHost _host;
+
+    /// <summary>Exposed so the View can read Settings for window-placement persistence.</summary>
+    public AppHost Host => _host;
     private bool _suppressProfileLoad;
     private bool _suppressSettingsPush;
     private bool _suppressDisplayApply;
@@ -160,6 +163,18 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
 
     [ObservableProperty]
     private int _timedOnMinutes = 30;
+
+    // --- Diagnostics sidecar ---
+
+    /// <summary>Toggled from the Settings tab; App.axaml.cs handles the actual window show/hide.</summary>
+    [ObservableProperty]
+    private bool _showDiagnosticsLog;
+
+    /// <summary>Raised when the user toggles the sidecar checkbox. Handled by the App shell.</summary>
+    public event Action<bool>? DiagnosticsLogRequested;
+
+    partial void OnShowDiagnosticsLogChanged(bool value)
+        => DiagnosticsLogRequested?.Invoke(value);
 
     // The key currently held by the test tool, if any. Set on hold-start, cleared on release.
     // Tracked separately from SelectedSendKey so the user can change the dropdown while a key
@@ -347,6 +362,7 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
         }
 
         _host.Store.Save(profile);
+        DiagLog.ProfileSaved(profile.Name);
         _loadedProfileName = profile.Name;
         _host.OnProfilesChanged();
         RefreshProfiles();
@@ -377,7 +393,9 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
         if (SelectedProfile is null)
             return;
 
-        _host.Store.Delete(SelectedProfile.Name);
+        string deleted = SelectedProfile.Name;
+        _host.Store.Delete(deleted);
+        DiagLog.ProfileDeleted(deleted);
         _host.OnProfilesChanged();
         RefreshProfiles();
 
@@ -564,6 +582,7 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
         if (_suppressSettingsPush)
             return;
         _host.UpdateSettings(_host.Settings with { KeepAwakeMode = value });
+        DiagLog.KeepAwakeModeChanged(value);
         _host.KeepAwake.Reapply();
     }
 
@@ -607,9 +626,15 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
             return;
 
         if (value)
+        {
             AutoStart.Enable();
+            DiagLog.AutoStartEnabled(Environment.ProcessPath ?? "?");
+        }
         else
+        {
             AutoStart.Disable();
+            DiagLog.AutoStartDisabled();
+        }
 
         _host.UpdateSettings(_host.Settings with { StartWithWindows = value });
     }
@@ -735,6 +760,7 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
             Key key = SelectedSendKey;
             string label = KeyDisplay.Format(key);
             SendStatus = $"Sending {label}...";
+            DiagLog.SendKeyTapped(key);
             _host.PressKey(key);
             // A small hold so the receiving app's key handler sees a proper down+up pair.
             await Task.Delay(30, ct);
@@ -760,6 +786,7 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
         if (IsKeyHeld && _heldKey is { } current)
         {
             _host.ReleaseHeldKey(current);
+            DiagLog.SendKeyReleased(current);
             _heldKey = null;
             IsKeyHeld = false;
             SendStatus = $"Released {KeyDisplay.Format(current)}.";
@@ -773,6 +800,7 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
             Key key = SelectedSendKey;
             string label = KeyDisplay.Format(key);
             _host.HoldKey(key);
+            DiagLog.SendKeyHeld(key);
             _heldKey = key;
             IsKeyHeld = true;
             SendStatus = $"Holding {label}. Click Release to stop.";

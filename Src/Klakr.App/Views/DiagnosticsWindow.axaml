@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Klakr.App.ViewModels"
+        x:Class="Klakr.App.Views.DiagnosticsWindow"
+        x:CompileBindings="False"
+        Icon="/Assets/icon.ico"
+        Title="Klakr - Diagnostics Log"
+        Width="640" Height="420"
+        MinWidth="420" MinHeight="240">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.entry">
+            <Setter Property="FontFamily" Value="Consolas,Menlo,monospace" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+        </Style>
+        <Style Selector="CheckBox.filter">
+            <Setter Property="Padding" Value="4,0,10,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </Window.Styles>
+
+    <DockPanel>
+
+        <!-- Filter row -->
+        <Border DockPanel.Dock="Top" Background="#18808080" Padding="8,6">
+            <StackPanel Orientation="Horizontal" Spacing="0">
+                <TextBlock Text="Filters:" Foreground="Gray" VerticalAlignment="Center"
+                           Margin="0,0,10,0" />
+                <CheckBox Classes="filter" Content="System"     IsChecked="{Binding ShowSystemFilter}" />
+                <CheckBox Classes="filter" Content="Engine"     IsChecked="{Binding ShowEngineFilter}" />
+                <CheckBox Classes="filter" Content="Keep Awake" IsChecked="{Binding ShowKeepAwakeFilter}" />
+                <CheckBox Classes="filter" Content="Display"    IsChecked="{Binding ShowDisplayFilter}" />
+                <CheckBox Classes="filter" Content="Key input"  IsChecked="{Binding ShowKeyInputFilter}" />
+                <CheckBox Classes="filter" Content="Update"     IsChecked="{Binding ShowUpdateFilter}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Action bar at the bottom -->
+        <Border DockPanel.Dock="Bottom" Background="#18808080" Padding="8,6">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Content="Clear"
+                        Command="{Binding ClearCommand}"
+                        ToolTip.Tip="Wipe the current log buffer and start fresh." />
+                <Button Content="Copy" Click="OnCopyClick"
+                        ToolTip.Tip="Copy the visible (post-filter) lines to the clipboard." />
+                <TextBlock Text="{Binding Visible.Count, StringFormat='{}{0} entries visible'}"
+                           Foreground="Gray" VerticalAlignment="Center" Margin="12,0,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- Log entries -->
+        <ScrollViewer Name="LogScroll" HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto" Background="#101010">
+            <ItemsControl ItemsSource="{Binding Visible}" Padding="8,4">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Classes="entry" Text="{Binding FormatLine}">
+                            <TextBlock.Foreground>
+                                <SolidColorBrush Color="#D0D0D0" />
+                            </TextBlock.Foreground>
+                        </TextBlock>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+    </DockPanel>
+</Window>

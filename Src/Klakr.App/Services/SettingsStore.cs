@@ -32,6 +32,28 @@ public sealed class SettingsStore(string filePath)
         return new AppSettings();
     }
 
+    /// <summary>
+    /// Load settings, immediately re-save. Fills in any newly-added properties with their
+    /// defaults while preserving every existing value the user has set. Non-destructive:
+    /// System.Text.Json ignores unknown JSON fields on read but they are dropped on re-save.
+    /// Returns true if the on-disk file was actually rewritten (i.e. content differed).
+    /// </summary>
+    public bool MigrateSchemaIfNeeded()
+    {
+        AppSettings current = Load();
+        string desired = JsonSerializer.Serialize(current, Options);
+
+        string existing = File.Exists(filePath) ? File.ReadAllText(filePath) : "";
+        if (string.Equals(existing, desired, StringComparison.Ordinal))
+            return false;
+
+        string? directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
+        File.WriteAllText(filePath, desired);
+        return true;
+    }
+
     public void Save(AppSettings settings)
     {
         string? directory = Path.GetDirectoryName(filePath);

@@ -27,6 +27,7 @@ public sealed class AppHost : IDisposable
 
     private List<Profile> _armed = [];
     private Profile? _running;
+    private DateTime? _engineStartedUtc;
 
     // Keys the Send-Key tool has pressed but not released. Cleared on Dispose so a held
     // key doesn't outlive the app - otherwise Windows would keep "seeing" it pressed.
@@ -45,7 +46,13 @@ public sealed class AppHost : IDisposable
         Store = new ProfileStore(ProfilePaths.ProfileDirectory);
 
         _settingsStore = new SettingsStore(ProfilePaths.SettingsFilePath);
+        // First: non-destructive schema migration. Reads existing values, fills in defaults
+        // for any newly-added properties, writes back. Old (unknown) keys are dropped; every
+        // value the user has set is preserved.
+        bool migrated = _settingsStore.MigrateSchemaIfNeeded();
         Settings = _settingsStore.Load();
+        if (migrated)
+            DiagLog.SettingsMigrated();
 
         if (OperatingSystem.IsWindows() && DisplayController.TryInitialize())
         {
@@ -71,6 +78,24 @@ public sealed class AppHost : IDisposable
         // Keep Awake reads Settings and calls PressKey/ReleaseKey and SetThreadExecutionState
         // via the platform helpers; built last for the same reason.
         _keepAwake = new KeepAwakeService(this);
+
+        // Watch engine transitions so DiagLog can report start/stop with elapsed time.
+        Engine.State.Changed += (_, runState) =>
+        {
+            if (runState == RunState.Running)
+            {
+                _engineStartedUtc = DateTime.UtcNow;
+                string name;
+                lock (_gate)
+                    name = _running?.Name ?? "(ad-hoc)";
+                DiagLog.EngineStarted(name);
+            }
+            else if (_engineStartedUtc is DateTime start)
+            {
+                DiagLog.EngineStopped(DateTime.UtcNow - start);
+                _engineStartedUtc = null;
+            }
+        };
     }
 
     public SequenceEngine Engine { get; }
@@ -154,7 +179,10 @@ public sealed class AppHost : IDisposable
     public void ApplyToMonitor(string monitorName, DisplayPreset preset)
     {
         if (IsNvidiaAvailable && OperatingSystem.IsWindows())
+        {
             DisplayController.ApplyToMonitor(monitorName, preset);
+            DiagLog.DisplayPresetApplied(monitorName, preset);
+        }
     }
 
     /// <summary>Applies each saved preset to its monitor; called when the toggle goes ON.</summary>
@@ -163,7 +191,10 @@ public sealed class AppHost : IDisposable
         if (!IsNvidiaAvailable || !OperatingSystem.IsWindows())
             return;
         foreach ((string name, DisplayPreset preset) in Settings.DisplayPresets)
+        {
             DisplayController.ApplyToMonitor(name, preset);
+            DiagLog.DisplayPresetApplied(name, preset);
+        }
     }
 
     /// <summary>Restores defaults on every monitor that has a saved preset (toggle OFF).</summary>
@@ -171,8 +202,13 @@ public sealed class AppHost : IDisposable
     {
         if (!IsNvidiaAvailable || !OperatingSystem.IsWindows())
             return;
+        int count = 0;
         foreach (string name in Settings.DisplayPresets.Keys)
+        {
             DisplayController.ApplyToMonitor(name, DefaultDisplayPreset);
+            count++;
+        }
+        DiagLog.DisplayPresetsRestored(count);
     }
 
     /// <summary>Persists new app-wide settings and notifies listeners (e.g. the overlay).</summary>
@@ -180,6 +216,7 @@ public sealed class AppHost : IDisposable
     {
         Settings = settings;
         _settingsStore.Save(settings);
+        DiagLog.SettingsPersisted();
         SettingsChanged?.Invoke(settings);
     }
 
@@ -215,6 +252,7 @@ public sealed class AppHost : IDisposable
 
         lock (_gate)
             _armed = enabled;
+        DiagLog.ProfilesReloaded(enabled.Count);
     }
 
     private void OnKeyPressed(object? sender, KeyEventArgs e)
@@ -242,6 +280,7 @@ public sealed class AppHost : IDisposable
         // Panic stop - always halts the engine, whatever profile is running.
         if (e.Key == PanicStopKey)
         {
+            DiagLog.PanicStop();
             Engine.Stop();
             return;
         }
@@ -252,7 +291,10 @@ public sealed class AppHost : IDisposable
             match = _armed.FirstOrDefault(p => p.Hotkey.Matches(e.Key));
 
         if (match is not null)
+        {
+            DiagLog.HotkeyTriggered(e.Key, match.Name);
             TriggerProfile(match);
+        }
     }
 
     private void OnKeyReleased(object? sender, KeyEventArgs e)

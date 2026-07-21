@@ -58,4 +58,18 @@ public sealed record AppSettings
 
     /// <summary>When non-null, Keep Awake auto-turns-off at this UTC instant (timed-on feature).</summary>
     public DateTime? KeepAwakeUntilUtc { get; init; }
+
+    // --- Persisted window rectangles ---
+
+    /// <summary>Config window last-known position + size. Null when never saved.</summary>
+    public int? ConfigWindowX { get; init; }
+    public int? ConfigWindowY { get; init; }
+    public int? ConfigWindowWidth { get; init; }
+    public int? ConfigWindowHeight { get; init; }
+
+    /// <summary>Diagnostics sidecar window last-known position + size. Null when never saved.</summary>
+    public int? DiagnosticsWindowX { get; init; }
+    public int? DiagnosticsWindowY { get; init; }
+    public int? DiagnosticsWindowWidth { get; init; }
+    public int? DiagnosticsWindowHeight { get; init; }
 }

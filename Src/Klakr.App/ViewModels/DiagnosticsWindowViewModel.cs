@@ -98,7 +98,7 @@ public sealed partial class DiagnosticsWindowViewModel : ObservableObject
     /// <summary>Joins the CURRENT VISIBLE (post-filter) list as plain text for clipboard.</summary>
     public string BuildClipboardText()
     {
-        return string.Join(Environment.NewLine, Visible.Select(e => e.FormatLine()));
+        return string.Join(Environment.NewLine, Visible.Select(e => e.FormatLine));
     }
 
     /// <summary>Called by the window on Closing so the DiagLog subscription doesn't leak.</summary>

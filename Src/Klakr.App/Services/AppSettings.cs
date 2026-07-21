@@ -75,4 +75,11 @@ public sealed record AppSettings
     public int? DiagnosticsWindowY { get; init; }
     public int? DiagnosticsWindowWidth { get; init; }
     public int? DiagnosticsWindowHeight { get; init; }
+
+    /// <summary>
+    /// True while the diagnostics sidecar is user-visible. Preserved across app quits and
+    /// crashes so the sidecar auto-reopens on next launch (and startup logs are captured).
+    /// Cleared only by explicit user action (unchecking the box or clicking X on the sidecar).
+    /// </summary>
+    public bool DiagnosticsSidecarOpen { get; init; }
 }

@@ -30,6 +30,14 @@ public partial class App : Application
             // The config window closes to the tray; the app quits only via the tray menu.
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
+            // Peek the sidecar flag BEFORE the AppHost ctor fires its startup log points
+            // (settings migration, profile reload). Enabling here means those calls land in
+            // the buffer and the auto-opened sidecar shows them - the whole point of persisting
+            // sidecar-open state is being able to see startup activity.
+            bool autoOpenSidecar = SettingsStore.TryPeekSidecarOpen(ProfilePaths.SettingsFilePath);
+            if (autoOpenSidecar)
+                DiagLog.Enable();
+
             _host = new AppHost();
 
             // Refresh the HKCU Run entry so it always points at the currently-running exe.
@@ -75,6 +83,13 @@ public partial class App : Application
                 System.Runtime.InteropServices.RuntimeInformation.OSDescription.Trim(),
                 _host.IsNvidiaAvailable,
                 AppArgs.StartMinimized);
+
+            // Auto-open the sidecar now that the app is fully wired. Setting the VM property
+            // cascades through OnShowDiagnosticsLogChanged -> DiagnosticsLogRequested ->
+            // OpenDiagnosticsWindow(). DiagLog is already enabled from the early peek above,
+            // and Enable() is idempotent, so we don't wipe the startup log buffer.
+            if (autoOpenSidecar)
+                configVm.ShowDiagnosticsLog = true;
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -173,9 +188,9 @@ public partial class App : Application
         // Closing the config window hides it to the tray rather than quitting the app.
         e.Cancel = true;
         _configWindow?.Hide();
-
-        // Close the diagnostics sidecar so it doesn't linger when the config is trayed.
-        CloseDiagnosticsWindow();
+        // Sidecar (if open) intentionally stays alive - it's independent of the config
+        // window's visibility, and closing config to the tray shouldn't kill an in-progress
+        // diagnostic session.
     }
 
     private void OnDiagnosticsLogRequested(bool show)
@@ -197,17 +212,20 @@ public partial class App : Application
         }
 
         DiagLog.Enable();
+        // Persist that the user (or startup-restore) opened the sidecar. Cleared only by
+        // explicit close - a kill or quit-via-tray preserves this so the next launch
+        // reopens automatically and captures startup logs.
+        _host.UpdateSettings(_host.Settings with { DiagnosticsSidecarOpen = true });
+
         _diagnosticsWindow = new DiagnosticsWindow
         {
             DataContext = new DiagnosticsWindowViewModel(),
         };
         _diagnosticsWindow.AttachHost(_host);
         _diagnosticsWindow.Closed += OnDiagnosticsWindowClosed;
-        Window? owner = _configWindow;
-        if (owner is not null)
-            _diagnosticsWindow.Show(owner);
-        else
-            _diagnosticsWindow.Show();
+        // Independent window (no owner). Config close-to-tray leaves the sidecar visible;
+        // owner-tied windows would minimise with the owner on Windows.
+        _diagnosticsWindow.Show();
     }
 
     private void CloseDiagnosticsWindow()
@@ -225,6 +243,12 @@ public partial class App : Application
             _diagnosticsWindow.Closed -= OnDiagnosticsWindowClosed;
             _diagnosticsWindow = null;
         }
+
+        // Only clear the persisted "sidecar is open" flag on EXPLICIT user close. If we're
+        // in the middle of a Quit(), preserve the flag so next launch reopens the sidecar.
+        if (!_quitting && _host is not null)
+            _host.UpdateSettings(_host.Settings with { DiagnosticsSidecarOpen = false });
+
         // DiagLog.Disable() is called by DiagnosticsWindow.OnClosing.
         // Reflect state back to the checkbox so it stays in sync if the window closed via X.
         if (_configWindow?.DataContext is ConfigWindowViewModel vm && vm.ShowDiagnosticsLog)

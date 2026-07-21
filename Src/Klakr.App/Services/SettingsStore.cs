@@ -13,6 +13,26 @@ public sealed class SettingsStore(string filePath)
         Converters = { new JsonStringEnumConverter() },
     };
 
+    /// <summary>
+    /// Peek at <see cref="AppSettings.DiagnosticsSidecarOpen"/> without instantiating a store.
+    /// Used before <see cref="AppHost"/> exists so we can enable <see cref="DiagLog"/> in time
+    /// to capture startup log events (settings migration, profile reload, etc).
+    /// </summary>
+    public static bool TryPeekSidecarOpen(string filePath)
+    {
+        try
+        {
+            if (!File.Exists(filePath))
+                return false;
+            AppSettings? s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(filePath), Options);
+            return s?.DiagnosticsSidecarOpen ?? false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Reads the settings file, or returns defaults if it is missing or unreadable.</summary>
     public AppSettings Load()
     {

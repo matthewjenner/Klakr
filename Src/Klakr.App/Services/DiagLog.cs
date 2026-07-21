@@ -37,11 +37,18 @@ public static class DiagLog
             return [.. _buffer];
     }
 
-    /// <summary>Turn logging on. Called by the sidecar window when it opens.</summary>
+    /// <summary>
+    /// Turn logging on. Idempotent - already-enabled calls are no-ops and preserve the
+    /// existing buffer. This matters at startup: we <see cref="Enable"/> early to capture
+    /// AppHost boot events, then the sidecar re-calls it on open - we don't want the second
+    /// call to wipe the freshly-captured startup lines.
+    /// </summary>
     public static void Enable()
     {
         lock (_gate)
         {
+            if (Enabled)
+                return;
             _buffer.Clear();
             Enabled = true;
         }

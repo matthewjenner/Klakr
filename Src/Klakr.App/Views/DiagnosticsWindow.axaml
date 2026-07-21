@@ -1,12 +1,17 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Klakr.App.ViewModels"
+        xmlns:conv="using:Klakr.App.Converters"
         x:Class="Klakr.App.Views.DiagnosticsWindow"
         x:CompileBindings="False"
         Icon="/Assets/icon.ico"
         Title="Klakr - Diagnostics Log"
         Width="640" Height="420"
         MinWidth="420" MinHeight="240">
+
+    <Window.Resources>
+        <conv:LogCategoryBrushConverter x:Key="LogCategoryBrush" />
+    </Window.Resources>
 
     <Window.Styles>
         <Style Selector="TextBlock.entry">
@@ -49,17 +54,21 @@
             </StackPanel>
         </Border>
 
-        <!-- Log entries -->
+        <!-- Log entries. Each row is timestamp + colored [category] tag + message. -->
         <ScrollViewer Name="LogScroll" HorizontalScrollBarVisibility="Auto"
                       VerticalScrollBarVisibility="Auto" Background="#101010">
             <ItemsControl ItemsSource="{Binding Visible}" Padding="8,4">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <TextBlock Classes="entry" Text="{Binding FormatLine}">
-                            <TextBlock.Foreground>
-                                <SolidColorBrush Color="#D0D0D0" />
-                            </TextBlock.Foreground>
-                        </TextBlock>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Classes="entry" Foreground="#808080"
+                                       Text="{Binding TimestampText}" />
+                            <TextBlock Classes="entry" FontWeight="Bold"
+                                       Foreground="{Binding Category, Converter={StaticResource LogCategoryBrush}}"
+                                       Text="{Binding TagText}" />
+                            <TextBlock Classes="entry" Foreground="#D8D8D8"
+                                       Text="{Binding Message}" />
+                        </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>

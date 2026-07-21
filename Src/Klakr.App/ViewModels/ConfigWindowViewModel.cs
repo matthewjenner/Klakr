@@ -154,15 +154,26 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
     private int _keepAwakeIntervalSeconds = 45;
 
     [ObservableProperty]
-    private string _keepAwakeTimeRanges = "";
-
-    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(KeepAwakeStatusText))]
     [NotifyPropertyChangedFor(nameof(KeepAwakeStateBrush))]
     private KeepAwakeState _keepAwakeState = KeepAwakeState.Off;
 
     [ObservableProperty]
     private int _timedOnMinutes = 30;
+
+    /// <summary>
+    /// True while a timed-activation deadline is set. Checkbox binding - checking activates
+    /// Keep Awake for <see cref="TimedOnMinutes"/>; unchecking clears the deadline only
+    /// (master toggle stays where it is).
+    /// </summary>
+    [ObservableProperty]
+    private bool _isTimedActivationEnabled;
+
+    /// <summary>Live "H:MM:SS" countdown shown next to the timed-activation checkbox.</summary>
+    [ObservableProperty]
+    private string _timedActivationRemaining = "";
+
+    private DispatcherTimer? _timedCountdownTimer;
 
     // --- Diagnostics sidecar ---
 
@@ -211,12 +222,25 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
         KeepAwakeMode = host.Settings.KeepAwakeMode;
         KeepAwakeKey = host.Settings.KeepAwakeKey;
         KeepAwakeIntervalSeconds = host.Settings.KeepAwakeIntervalSeconds;
-        KeepAwakeTimeRanges = host.Settings.KeepAwakeTimeRanges;
+        Hours = BuildHourToggles(host.Settings.KeepAwakeActiveHoursMask);
         KeepAwakeState = host.KeepAwake.CurrentState;
+        IsTimedActivationEnabled = host.Settings.KeepAwakeUntilUtc is not null;
+        if (IsTimedActivationEnabled)
+            StartTimedCountdown();
         host.KeepAwake.StateChanged += s => Dispatcher.UIThread.Post(() =>
         {
             KeepAwakeState = s;
             KeepAwakeActive = _host.Settings.KeepAwakeActive; // timed-on expiry flips this from off-thread
+            // Deadline can be cleared by the service (timed-on expiry) - sync the checkbox.
+            bool hasDeadline = _host.Settings.KeepAwakeUntilUtc is not null;
+            if (IsTimedActivationEnabled != hasDeadline)
+            {
+                _suppressSettingsPush = true;
+                IsTimedActivationEnabled = hasDeadline;
+                _suppressSettingsPush = false;
+                if (!hasDeadline)
+                    StopTimedCountdown();
+            }
         });
         // Setting SelectedMonitor triggers OnSelectedMonitorChanged, which loads its preset
         // into the sliders. Both suppress flags keep that from applying or persisting at startup.
@@ -238,6 +262,9 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
 
     /// <summary>Saved profiles (name + enabled state), for the left-hand list.</summary>
     public ObservableCollection<ProfileSummary> Profiles { get; } = [];
+
+    /// <summary>24 toggle cells (00-23), one per hour of the local day. Empty = always active.</summary>
+    public ObservableCollection<HourToggleViewModel> Hours { get; private set; } = [];
 
     /// <summary>A platform warning to show as a banner, or null when the environment is fine.</summary>
     public string? PlatformNotice { get; }
@@ -600,12 +627,84 @@ public sealed partial class ConfigWindowViewModel : ObservableObject
         _host.UpdateSettings(_host.Settings with { KeepAwakeIntervalSeconds = value });
     }
 
-    partial void OnKeepAwakeTimeRangesChanged(string value)
+    partial void OnIsTimedActivationEnabledChanged(bool value)
     {
         if (_suppressSettingsPush)
             return;
-        _host.UpdateSettings(_host.Settings with { KeepAwakeTimeRanges = value ?? "" });
+        if (value)
+        {
+            int minutes = Math.Max(1, TimedOnMinutes);
+            _host.KeepAwake.ActivateFor(TimeSpan.FromMinutes(minutes));
+            StartTimedCountdown();
+        }
+        else
+        {
+            _host.KeepAwake.ClearTimedActivation();
+            StopTimedCountdown();
+        }
+    }
+
+    private ObservableCollection<HourToggleViewModel> BuildHourToggles(int mask)
+    {
+        var result = new ObservableCollection<HourToggleViewModel>();
+        for (int h = 0; h < 24; h++)
+        {
+            bool active = (mask & (1 << h)) != 0;
+            result.Add(new HourToggleViewModel(h, active, OnHourToggleChanged));
+        }
+        return result;
+    }
+
+    private void OnHourToggleChanged(HourToggleViewModel _)
+    {
+        if (_suppressSettingsPush)
+            return;
+        int mask = 0;
+        foreach (HourToggleViewModel h in Hours)
+            if (h.IsActive)
+                mask |= 1 << h.Hour;
+        _host.UpdateSettings(_host.Settings with { KeepAwakeActiveHoursMask = mask });
+        DiagLog.KeepAwakeActiveHoursChanged(mask);
         _host.KeepAwake.Reapply();
+    }
+
+    private void StartTimedCountdown()
+    {
+        _timedCountdownTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _timedCountdownTimer.Tick -= OnTimedCountdownTick;
+        _timedCountdownTimer.Tick += OnTimedCountdownTick;
+        _timedCountdownTimer.Start();
+        UpdateTimedRemaining();
+    }
+
+    private void StopTimedCountdown()
+    {
+        if (_timedCountdownTimer is not null)
+        {
+            _timedCountdownTimer.Stop();
+            _timedCountdownTimer.Tick -= OnTimedCountdownTick;
+        }
+        TimedActivationRemaining = "";
+    }
+
+    private void OnTimedCountdownTick(object? sender, EventArgs e) => UpdateTimedRemaining();
+
+    private void UpdateTimedRemaining()
+    {
+        if (_host.Settings.KeepAwakeUntilUtc is not DateTime until)
+        {
+            StopTimedCountdown();
+            return;
+        }
+        TimeSpan remaining = until - DateTime.UtcNow;
+        if (remaining <= TimeSpan.Zero)
+        {
+            TimedActivationRemaining = "0:00";
+            return;
+        }
+        TimedActivationRemaining = remaining.TotalHours >= 1
+            ? $"{(int)remaining.TotalHours}:{remaining.Minutes:D2}:{remaining.Seconds:D2}"
+            : $"{(int)remaining.TotalMinutes}:{remaining.Seconds:D2}";
     }
 
     /// <summary>Turn on Keep Awake for <see cref="TimedOnMinutes"/> and let it auto-off.</summary>

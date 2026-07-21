@@ -5,7 +5,7 @@
     and builds the Velopack release.
   -->
   <PropertyGroup>
-    <VersionPrefix>1.1.2</VersionPrefix>
+    <VersionPrefix>1.1.3</VersionPrefix>
     <!--
       Stops the .NET SDK appending "+<git-commit-hash>" to AssemblyInformationalVersion,
       so any code reading the in-process informational version (an About box, logs, etc.)

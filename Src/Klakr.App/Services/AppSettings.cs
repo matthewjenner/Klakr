@@ -53,8 +53,11 @@ public sealed record AppSettings
     /// </summary>
     public int KeepAwakeIntervalSeconds { get; init; } = 45;
 
-    /// <summary>Comma-separated <c>HH:MM-HH:MM</c> ranges. Empty = always allowed.</summary>
-    public string KeepAwakeTimeRanges { get; init; } = "";
+    /// <summary>
+    /// 24-bit mask, one bit per hour of day (bit 0 = 00:00-00:59). Zero = always active
+    /// (no time restriction). Any bit set restricts activity to that hour of the local day.
+    /// </summary>
+    public int KeepAwakeActiveHoursMask { get; init; }
 
     /// <summary>When non-null, Keep Awake auto-turns-off at this UTC instant (timed-on feature).</summary>
     public DateTime? KeepAwakeUntilUtc { get; init; }

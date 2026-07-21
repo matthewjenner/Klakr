@@ -481,11 +481,25 @@
                                     <TextBlock Text="Active hours" FontWeight="Bold" />
                                 </HeaderedContentControl.Header>
                                 <StackPanel Spacing="6" Margin="0,6,0,0">
-                                    <TextBox Width="360" HorizontalAlignment="Left"
-                                             Text="{Binding KeepAwakeTimeRanges}"
-                                             PlaceholderText="e.g. 09:00-17:00, 20:00-23:00" />
+                                    <ItemsControl ItemsSource="{Binding Hours}" HorizontalAlignment="Left">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="12" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <ToggleButton Content="{Binding Label}"
+                                                              IsChecked="{Binding IsActive}"
+                                                              Width="40" Height="30" Margin="2"
+                                                              Padding="0"
+                                                              HorizontalContentAlignment="Center"
+                                                              VerticalContentAlignment="Center" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                     <TextBlock Foreground="Gray" FontSize="11" TextWrapping="Wrap"
-                                               Text="Comma-separated HH:MM-HH:MM ranges. Leave empty for always-active. Ranges may wrap midnight (22:00-06:00)." />
+                                               Text="Click hours to restrict when Keep Awake fires. Leave all off for always-active. Whole hours (local time) only." />
                                 </StackPanel>
                             </HeaderedContentControl>
 
@@ -493,13 +507,22 @@
                                 <HeaderedContentControl.Header>
                                     <TextBlock Text="Timed activation" FontWeight="Bold" />
                                 </HeaderedContentControl.Header>
-                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
-                                    <TextBlock Text="Keep awake for" VerticalAlignment="Center" />
-                                    <TextBox Classes="num"
-                                             Text="{Binding TimedOnMinutes, Converter={StaticResource IntText}}" />
-                                    <TextBlock Text="minutes" VerticalAlignment="Center" />
-                                    <Button Content="Start"
-                                            Command="{Binding ActivateKeepAwakeTimedCommand}" />
+                                <StackPanel Spacing="6" Margin="0,6,0,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <CheckBox Content="Auto-turn-off after"
+                                                  IsChecked="{Binding IsTimedActivationEnabled}"
+                                                  VerticalAlignment="Center" />
+                                        <TextBox Classes="num"
+                                                 Text="{Binding TimedOnMinutes, Converter={StaticResource IntText}}"
+                                                 IsEnabled="{Binding !IsTimedActivationEnabled}" />
+                                        <TextBlock Text="minutes" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding TimedActivationRemaining, StringFormat='remaining: {0}'}"
+                                                   IsVisible="{Binding IsTimedActivationEnabled}"
+                                                   Foreground="#6BFF9E" FontWeight="Bold"
+                                                   VerticalAlignment="Center" Margin="12,0,0,0" />
+                                    </StackPanel>
+                                    <TextBlock Foreground="Gray" FontSize="11" TextWrapping="Wrap"
+                                               Text="Check to start the timer (turns Keep Awake on if it isn't already). Uncheck to cancel the timer; the master toggle stays as-is." />
                                 </StackPanel>
                             </HeaderedContentControl>
 

@@ -4,6 +4,17 @@ using Klakr.App.Platform.Windows;
 namespace Klakr.App.Services;
 
 /// <summary>
+/// Whole-hour restriction helper. Zero mask = always active. Any bit set restricts activity
+/// to those hours of the local day (bit 0 = 00:00, bit 23 = 23:00).
+/// </summary>
+internal static class HourMask
+{
+    /// <summary>True if the mask permits activity at <paramref name="hour"/> (0-23).</summary>
+    public static bool Contains(int mask, int hour)
+        => mask == 0 || (mask & (1 << hour)) != 0;
+}
+
+/// <summary>
 /// Prevents the machine from sleeping and/or fools activity-tracking apps by simulating a
 /// key press. Runs a 5-second poll loop; the poll cadence is decoupled from the user-facing
 /// interval so the send-if-idle-for-N-seconds guarantee holds up to a small margin.
@@ -66,6 +77,19 @@ public sealed class KeepAwakeService : IDisposable
             KeepAwakeUntilUtc = DateTime.UtcNow + duration,
         });
         DiagLog.KeepAwakeTimedOnStarted((int)Math.Round(duration.TotalMinutes));
+        Reapply();
+    }
+
+    /// <summary>
+    /// Clear a pending timed-on deadline without touching the master toggle. Called when the
+    /// user unchecks the timed-activation checkbox in the UI.
+    /// </summary>
+    public void ClearTimedActivation()
+    {
+        if (_host.Settings.KeepAwakeUntilUtc is null)
+            return;
+        _host.UpdateSettings(_host.Settings with { KeepAwakeUntilUtc = null });
+        DiagLog.KeepAwakeTimedOnCleared();
         Reapply();
     }
 
@@ -183,9 +207,10 @@ public sealed class KeepAwakeService : IDisposable
         if (!s.KeepAwakeActive)
             return KeepAwakeState.Off;
 
-        TimeRangeSet ranges = TimeRangeSet.Parse(s.KeepAwakeTimeRanges);
-        TimeOnly nowLocal = TimeOnly.FromDateTime(DateTime.Now);
-        return ranges.Contains(nowLocal) ? KeepAwakeState.Active : KeepAwakeState.Armed;
+        int hourLocal = DateTime.Now.Hour;
+        return HourMask.Contains(s.KeepAwakeActiveHoursMask, hourLocal)
+            ? KeepAwakeState.Active
+            : KeepAwakeState.Armed;
     }
 
     private void ApplyStesForCurrentState()

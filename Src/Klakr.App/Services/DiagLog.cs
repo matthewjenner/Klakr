@@ -151,6 +151,14 @@ public static class DiagLog
     public static void KeepAwakeTimedOnExpired()
         => Emit(LogCategory.KeepAwake, "Timed-on deadline reached; deactivating");
 
+    public static void KeepAwakeTimedOnCleared()
+        => Emit(LogCategory.KeepAwake, "Timed-on cancelled by user");
+
+    public static void KeepAwakeActiveHoursChanged(int mask)
+        => Emit(LogCategory.KeepAwake, mask == 0
+            ? "Active hours cleared (always active)"
+            : $"Active hours mask -> 0x{mask:X6}");
+
     // -----------------------------------------------------------------------------------
     //  Display category
     // -----------------------------------------------------------------------------------

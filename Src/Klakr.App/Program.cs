@@ -16,7 +16,25 @@ class Program
         // hook events and exits before Avalonia starts when invoked for those.
         VelopackApp.Build().Run();
 
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        // Second-launch guard: if Klakr is already running, hand the "show yourself" request
+        // to the primary and exit without starting a second Avalonia stack (which would spawn
+        // a duplicate tray icon and process). The startup auto-launch (--minimized) that
+        // races an already-running instance exits silently rather than popping the window.
+        if (!SingleInstance.TryAcquire())
+        {
+            if (!AppArgs.StartMinimized)
+                SingleInstance.SignalActivate();
+            return;
+        }
+
+        try
+        {
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+        finally
+        {
+            SingleInstance.Release();
+        }
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.

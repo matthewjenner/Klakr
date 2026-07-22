@@ -19,6 +19,7 @@ public partial class App : Application
     private DiagnosticsWindow? _diagnosticsWindow;
     private TrayIcon? _trayIcon;
     private NativeMenuItem? _keepAwakeItem;
+    private CancellationTokenSource? _activationListenerCts;
     private bool _quitting;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -90,6 +91,13 @@ public partial class App : Application
             // and Enable() is idempotent, so we don't wipe the startup log buffer.
             if (autoOpenSidecar)
                 configVm.ShowDiagnosticsLog = true;
+
+            // Listen for "show yourself" signals from secondary launches (Program.Main's
+            // SingleInstance guard forwards them here). Runs until Quit() cancels the token.
+            _activationListenerCts = new CancellationTokenSource();
+            _ = SingleInstance.ListenAsync(
+                () => Dispatcher.UIThread.Post(OnActivationRequested),
+                _activationListenerCts.Token);
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -263,9 +271,16 @@ public partial class App : Application
         _configWindow.Activate();
     }
 
+    private void OnActivationRequested()
+    {
+        DiagLog.SecondLaunchActivated();
+        ShowConfigWindow();
+    }
+
     private void Quit()
     {
         _quitting = true;
+        _activationListenerCts?.Cancel();
         _host?.Dispose();
         _trayIcon?.Dispose();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

@@ -114,6 +114,9 @@ public static class DiagLog
     public static void HotkeyTriggered(Klakr.Core.Input.Key key, string profileName)
         => Emit(LogCategory.System, $"Hotkey {KeyDisplay.Format(key)} -> profile '{profileName}'");
 
+    public static void SecondLaunchActivated()
+        => Emit(LogCategory.System, "Second launch detected; brought existing config window to front");
+
     public static void PanicStop()
         => Emit(LogCategory.System, "Panic key pressed; engine stopped");
 
